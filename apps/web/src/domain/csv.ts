@@ -87,9 +87,7 @@ export const csvRowSchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .pipe(
-      z.enum(['comum', 'daytrade'], { error: 'Modalidade deve ser "comum" ou "daytrade".' }),
-    ),
+    .pipe(z.enum(['comum', 'daytrade'], { error: 'Modalidade deve ser "comum" ou "daytrade".' })),
 });
 
 export type CsvRow = z.infer<typeof csvRowSchema>;
@@ -128,7 +126,7 @@ const defaultId: IdFactory = (line) => `csv-${Date.now()}-${line}`;
  * são devolvidas em `errors` com o número da linha e as mensagens.
  */
 export function parseOperationsCsv(text: string, makeId: IdFactory = defaultId): ImportResult {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   const headerLine = lines[0] ?? '';
   const separator = detectSeparator(headerLine);
   const header = headerLine.split(separator).map((cell) => cell.trim().toLowerCase());

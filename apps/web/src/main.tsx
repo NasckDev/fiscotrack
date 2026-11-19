@@ -4,10 +4,7 @@ import { HashRouter } from 'react-router';
 import { App } from './App';
 import './index.css';
 import { OperationsProvider } from './state/OperationsContext';
-import {
-  createIndexedDbRepository,
-  createMemoryRepository,
-} from './storage/operationsRepository';
+import { createIndexedDbRepository, createMemoryRepository } from './storage/operationsRepository';
 
 const repository =
   typeof indexedDB === 'undefined' ? createMemoryRepository() : createIndexedDbRepository();

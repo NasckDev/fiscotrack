@@ -103,12 +103,24 @@ export function OperationsPage() {
             <caption className="sr-only">Operações salvas neste navegador</caption>
             <thead>
               <tr className="border-b border-slate-300 dark:border-slate-600">
-                <th scope="col" className="py-2 pr-3">Data</th>
-                <th scope="col" className="py-2 pr-3">Ticker</th>
-                <th scope="col" className="py-2 pr-3">Tipo</th>
-                <th scope="col" className="py-2 pr-3 text-right">Qtd.</th>
-                <th scope="col" className="py-2 pr-3 text-right">Preço</th>
-                <th scope="col" className="py-2 pr-3 text-right">Custos</th>
+                <th scope="col" className="py-2 pr-3">
+                  Data
+                </th>
+                <th scope="col" className="py-2 pr-3">
+                  Ticker
+                </th>
+                <th scope="col" className="py-2 pr-3">
+                  Tipo
+                </th>
+                <th scope="col" className="py-2 pr-3 text-right">
+                  Qtd.
+                </th>
+                <th scope="col" className="py-2 pr-3 text-right">
+                  Preço
+                </th>
+                <th scope="col" className="py-2 pr-3 text-right">
+                  Custos
+                </th>
                 <th scope="col" className="py-2">
                   <span className="sr-only">Ações</span>
                 </th>

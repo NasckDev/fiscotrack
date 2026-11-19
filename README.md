@@ -12,6 +12,20 @@ renda variável com **regras versionadas e explicáveis**.
 
 App publicado: https://nasckdev.github.io/fiscotrack/
 
+## Telas
+
+Capturas com o arquivo de exemplo importado (desktop 1440x900 e celular 390x844).
+
+![Painel mensal com gráfico de resultado e DARF estimado](docs/prints/fiscotrack-painel-mensal-desktop.webp)
+
+![Explicação passo a passo do cálculo de um mês, com fontes](docs/prints/fiscotrack-explicacao-calculo-desktop.webp)
+
+![Importação de CSV com erros apontados por linha](docs/prints/fiscotrack-importacao-csv-desktop.webp)
+
+![Lista de operações e formulário manual](docs/prints/fiscotrack-operacoes-desktop.webp)
+
+<img src="docs/prints/fiscotrack-painel-mensal-mobile.webp" alt="Painel mensal no celular" width="280">
+
 ## Problema
 
 Investidores precisam organizar operações, calcular o resultado por mês e entender quais regras
@@ -33,14 +47,14 @@ foram aplicadas — sem depender de uma planilha opaca.
 Ações no mercado à vista, pessoa física — detalhes e premissas em
 [packages/engine/src/rules/brRendaVariavel.ts](packages/engine/src/rules/brRendaVariavel.ts):
 
-| Regra | Valor no projeto | Observação |
-| --- | --- | --- |
-| Custo médio | Preço médio ponderado, custos de compra incluídos | Custos de venda reduzem o valor de venda |
-| Alíquota operações comuns | 15% | configurável |
-| Alíquota day trade | 20% | configurável |
-| Isenção | Vendas de ações (operações comuns) até R$ 20.000,00/mês | configurável; considera valor bruto de venda |
-| Compensação de prejuízo | Por categoria (comum × day trade), sem prazo | prejuízo em mês isento compensável (premissa configurável) |
-| DARF mínimo | R$ 10,00; abaixo disso acumula para o mês seguinte | configurável |
+| Regra                     | Valor no projeto                                        | Observação                                                 |
+| ------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| Custo médio               | Preço médio ponderado, custos de compra incluídos       | Custos de venda reduzem o valor de venda                   |
+| Alíquota operações comuns | 15%                                                     | configurável                                               |
+| Alíquota day trade        | 20%                                                     | configurável                                               |
+| Isenção                   | Vendas de ações (operações comuns) até R$ 20.000,00/mês | configurável; considera valor bruto de venda               |
+| Compensação de prejuízo   | Por categoria (comum × day trade), sem prazo            | prejuízo em mês isento compensável (premissa configurável) |
+| DARF mínimo               | R$ 10,00; abaixo disso acumula para o mês seguinte      | configurável                                               |
 
 Fontes citadas: Lei nº 11.033/2004, IN RFB nº 1.585/2015 e orientações da Receita Federal.
 **Fora do escopo:** IRRF ("dedo-duro"), FIIs, ETFs, BDRs, opções, eventos corporativos (desdobramento,
@@ -74,8 +88,17 @@ npm install
 npm run dev            # app em http://localhost:5173
 npm test               # testes de todos os pacotes
 npm run test:coverage  # cobertura (engine exige ≥ 90%)
-npm run lint && npm run typecheck && npm run build
+npm run lint && npm run format:check && npm run typecheck && npm run build
 ```
+
+### Build portátil (qualquer subcaminho)
+
+```bash
+npm run build:portable   # gera apps/web/dist-portable
+```
+
+A pasta usa caminhos relativos (`base: './'`) e rotas por hash, então funciona servida em qualquer
+subcaminho, por exemplo `/projetos/fiscotrack/`, sem fallback de servidor.
 
 ### Formato do CSV
 

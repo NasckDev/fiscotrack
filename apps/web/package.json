@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build:portable": "vite build --base ./ --outDir dist-portable --emptyOutDir"
   },
   "dependencies": {
     "@fiscotrack/engine": "0.1.0",

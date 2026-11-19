@@ -73,7 +73,11 @@ export function MonthlyChart({ months }: MonthlyChartProps) {
       {showTable ? (
         <MonthlyTable months={months} captionId={captionId} />
       ) : (
-        <div className="h-64" role="img" aria-label="Gráfico de barras; use “Ver como tabela” para os valores.">
+        <div
+          className="h-64"
+          role="img"
+          aria-label="Gráfico de barras; use “Ver como tabela” para os valores."
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={toChartData(months)}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />

@@ -53,8 +53,21 @@ export function OperationsProvider({ repository, children }: OperationsProviderP
   }, [repository]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let cancelled = false;
+    repository.list().then(
+      (operations) => {
+        if (!cancelled) setState({ status: 'ready', operations, errorMessage: null });
+      },
+      (error: unknown) => {
+        if (!cancelled) {
+          setState({ status: 'error', operations: [], errorMessage: messageOf(error) });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [repository]);
 
   const mutate = useCallback(
     async (action: () => Promise<void>) => {

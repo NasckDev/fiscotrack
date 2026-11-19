@@ -17,7 +17,10 @@ describe('parseDecimal', () => {
 
 describe('parseOperationsCsv', () => {
   it('converte linhas válidas em operações do engine', () => {
-    const result = parseOperationsCsv(`${HEADER}\n15/03/2024;petr4;compra;100;32,50;4,90;comum`, ids);
+    const result = parseOperationsCsv(
+      `${HEADER}\n15/03/2024;petr4;compra;100;32,50;4,90;comum`,
+      ids,
+    );
     expect(result.errors).toEqual([]);
     expect(result.operations).toEqual([
       {
@@ -34,7 +37,8 @@ describe('parseOperationsCsv', () => {
   });
 
   it('aceita separador vírgula com decimais em ponto', () => {
-    const csv = 'data,ticker,tipo,quantidade,preco,taxas,modalidade\n2024-03-15,VALE3,venda,10,60.10,0,daytrade';
+    const csv =
+      'data,ticker,tipo,quantidade,preco,taxas,modalidade\n2024-03-15,VALE3,venda,10,60.10,0,daytrade';
     const [operation] = parseOperationsCsv(csv, ids).operations;
     expect(operation).toMatchObject({ side: 'SELL', unitPriceCents: 6010, category: 'DAY_TRADE' });
   });
@@ -57,7 +61,13 @@ describe('parseOperationsCsv', () => {
   });
 
   it('importa linhas válidas mesmo com linhas inválidas (importação parcial)', () => {
-    const csv = [HEADER, '2024-01-02;PETR4;compra;1;1;0;comum', 'x;y;z', '', '2024-01-03;PETR4;venda;1;2;0;comum'].join('\r\n');
+    const csv = [
+      HEADER,
+      '2024-01-02;PETR4;compra;1;1;0;comum',
+      'x;y;z',
+      '',
+      '2024-01-03;PETR4;venda;1;2;0;comum',
+    ].join('\r\n');
     const result = parseOperationsCsv(csv, ids);
     expect(result.operations.map((operation) => operation.id)).toEqual(['id-2', 'id-5']);
     expect(result.errors.map((error) => error.line)).toEqual([3]);
@@ -70,7 +80,7 @@ describe('parseOperationsCsv', () => {
   });
 
   it('ignora BOM no início do arquivo', () => {
-    const result = parseOperationsCsv(`﻿${HEADER}\n2024-01-02;PETR4;compra;1;1;0;comum`, ids);
+    const result = parseOperationsCsv(`\uFEFF${HEADER}\n2024-01-02;PETR4;compra;1;1;0;comum`, ids);
     expect(result.operations).toHaveLength(1);
   });
 });

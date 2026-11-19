@@ -79,8 +79,8 @@ export function ImportPage() {
       <p className="text-slate-700 dark:text-slate-300">
         Colunas esperadas (separador <code>;</code> ou <code>,</code>):{' '}
         <code>{CSV_COLUMNS.join(';')}</code>. Datas em AAAA-MM-DD ou DD/MM/AAAA; tipo{' '}
-        <code>compra</code>/<code>venda</code>; modalidade <code>comum</code>/
-        <code>daytrade</code>. O arquivo é lido no navegador e nada é enviado a servidores.
+        <code>compra</code>/<code>venda</code>; modalidade <code>comum</code>/<code>daytrade</code>.
+        O arquivo é lido no navegador e nada é enviado a servidores.
       </p>
       <div className="card flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="flex flex-col gap-1">
