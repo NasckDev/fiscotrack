@@ -16,7 +16,10 @@ export function NextDarfCard({ darfs, onMarkPaid }: NextDarfCardProps) {
 
   if (entry === null) {
     return (
-      <section aria-label="Próximo DARF" className="hero flex h-full flex-col justify-between p-5 sm:p-6">
+      <section
+        aria-label="Próximo DARF"
+        className="hero flex h-full flex-col justify-between p-5 sm:p-6"
+      >
         <p className="flex items-center gap-2 text-sm font-semibold text-hero-muted">
           <Icon name="check-circle" size={18} />
           Próximo DARF
@@ -36,7 +39,10 @@ export function NextDarfCard({ darfs, onMarkPaid }: NextDarfCardProps) {
 
   const { text, urgent } = dueCountdown(entry.dueDate, todayIso());
   return (
-    <section aria-label="Próximo DARF" className="hero flex h-full flex-col justify-between p-5 sm:p-6">
+    <section
+      aria-label="Próximo DARF"
+      className="hero flex h-full flex-col justify-between p-5 sm:p-6"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-semibold text-hero-muted">
           <Icon name="receipt" size={18} />
