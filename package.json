@@ -18,20 +18,21 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
-    "build:portable": "npm run build:portable -w @fiscotrack/web"
+    "build:portable": "npm run build:portable -w @fiscotrack/web",
+    "build-storybook": "npm run build-storybook -w @fiscotrack/web"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@vitest/coverage-v8": "^5.1.1",
-    "eslint": "^10.15.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.14.0",
-    "prettier": "^3.10.1",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.73.0",
-    "vitest": "^5.1.1"
+    "@eslint/js": "10.0.1",
+    "@vitest/coverage-v8": "5.1.1",
+    "eslint": "10.15.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.73.0",
+    "vitest": "5.1.1"
   }
 }
