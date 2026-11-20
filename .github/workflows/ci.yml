@@ -28,3 +28,21 @@ jobs:
         run: npm run test:coverage
       - name: Build
         run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Navegador do Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Build portátil
+        run: npm run build:portable
+      - name: Testes E2E com axe
+        run: npm run test:e2e -w @fiscotrack/web
