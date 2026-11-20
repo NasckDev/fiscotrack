@@ -9,9 +9,14 @@ import { Reveal } from '../components/Reveal';
 import { useToasts } from '../components/Toasts';
 import { PageHeader } from '../components/ui';
 import { operationsToCsv } from '../domain/csvExport';
+import { toPaidMarks } from '../domain/darf';
 import { formatDate, formatDateShort, plural } from '../domain/format';
 import { downloadText } from '../download';
 import { useOperations } from '../state/OperationsContext';
+import { useRunner } from '../state/useRunner';
+import { useIsWide } from '../useMediaQuery';
+
+const PAGE_SIZE = 50;
 
 interface Filters {
   readonly query: string;
@@ -27,7 +32,10 @@ function applyFilters(operations: readonly Operation[], filters: Filters): reado
     .filter((operation) => query === '' || operation.ticker.includes(query))
     .filter((operation) => filters.side === 'all' || operation.side === filters.side)
     .filter((operation) => filters.category === 'all' || operation.category === filters.category)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    .sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) || (b.seq ?? 0) - (a.seq ?? 0) || b.id.localeCompare(a.id),
+    );
 }
 
 function SideBadge({ operation }: { readonly operation: Operation }) {
@@ -80,12 +88,13 @@ const HEADERS: readonly { label: string; align: string }[] = [
   { label: 'Tipo', align: '' },
   { label: 'Qtd.', align: 'text-right' },
   { label: 'Preço', align: 'text-right' },
+  { label: 'Total', align: 'text-right' },
   { label: 'Custos', align: 'text-right' },
 ];
 
 function OperationsTable({ operations, ...actions }: ListProps) {
   return (
-    <table className="hidden w-full text-left text-sm md:table">
+    <table className="w-full text-left text-sm">
       <caption className="sr-only">Operações salvas neste navegador</caption>
       <thead className="text-xs text-muted">
         <tr className="border-b border-line-soft">
@@ -120,6 +129,9 @@ function OperationsTable({ operations, ...actions }: ListProps) {
             </td>
             <td className="num px-3 py-2 text-right">{operation.quantity}</td>
             <td className="num px-3 py-2 text-right">{formatBRL(operation.unitPriceCents)}</td>
+            <td className="num px-3 py-2 text-right font-semibold">
+              {formatBRL(operation.quantity * operation.unitPriceCents)}
+            </td>
             <td className="num px-3 py-2 text-right text-muted">
               {formatBRL(operation.feesCents)}
             </td>
@@ -135,7 +147,7 @@ function OperationsTable({ operations, ...actions }: ListProps) {
 
 function OperationCards({ operations, ...actions }: ListProps) {
   return (
-    <ul className="divide-y divide-line-soft md:hidden" aria-label="Operações salvas">
+    <ul className="divide-y divide-line-soft" aria-label="Operações salvas">
       {operations.map((operation) => (
         <li key={operation.id} className="flex items-center gap-1 py-2 pr-1 pl-4">
           <div className="min-w-0 flex-1">
@@ -180,7 +192,7 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (next: F
           onChange={(event) =>
             onChange({ ...filters, side: event.target.value as Filters['side'] })
           }
-          className="input sm:w-40"
+          className="input min-w-0 sm:w-44"
         >
           <option value="all">Compra e venda</option>
           <option value="BUY">Só compras</option>
@@ -192,9 +204,9 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (next: F
           onChange={(event) =>
             onChange({ ...filters, category: event.target.value as Filters['category'] })
           }
-          className="input sm:w-48"
+          className="input min-w-0 sm:w-52"
         >
-          <option value="all">Todas as modalidades</option>
+          <option value="all">Modalidades</option>
           <option value="SWING">Comum</option>
           <option value="DAY_TRADE">Day trade</option>
         </select>
@@ -203,40 +215,91 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (next: F
   );
 }
 
+function Pager({
+  page,
+  pages,
+  onPage,
+}: {
+  page: number;
+  pages: number;
+  onPage: (page: number) => void;
+}) {
+  if (pages <= 1) return null;
+  return (
+    <nav aria-label="Páginas" className="flex items-center gap-1">
+      <button
+        type="button"
+        className="btn btn-secondary"
+        disabled={page === 0}
+        onClick={() => onPage(page - 1)}
+      >
+        Anterior
+      </button>
+      <span className="num px-2 text-xs text-muted" aria-live="polite">
+        {page + 1} de {pages}
+      </span>
+      <button
+        type="button"
+        className="btn btn-secondary"
+        disabled={page >= pages - 1}
+        onClick={() => onPage(page + 1)}
+      >
+        Próxima
+      </button>
+    </nav>
+  );
+}
+
 function OperationsContent() {
-  const { operations, addMany, remove, clear, restore, paidMonths } = useOperations();
+  const { operations, paid, addMany, remove, clear, merge } = useOperations();
   const toasts = useToasts();
+  const run = useRunner();
+  const isWide = useIsWide();
   const [params, setParams] = useSearchParams();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Operation | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const isDialogOpen = params.get('nova') === '1' || editing !== null;
+  const defaultTicker = params.get('ticker')?.toUpperCase() ?? undefined;
   const visible = applyFilters(operations, filters);
+  const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const current = Math.min(page, pages - 1);
+  const shown = visible.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
 
   const closeDialog = () => {
     setEditing(null);
     if (params.has('nova')) setParams({}, { replace: true });
   };
 
-  const save = async (operation: Operation, isEdit: boolean) => {
-    await addMany([operation]);
+  const save = async (operation: Operation, isEdit: boolean): Promise<string | null> => {
+    const ok = await run(() => addMany([operation]), 'Não foi possível salvar a operação.');
+    if (!ok) return 'Não foi possível salvar. Tente de novo ou exporte um backup antes.';
     closeDialog();
     toasts.show(isEdit ? 'Operação atualizada.' : 'Operação adicionada.');
+    return null;
   };
 
   const handleDelete = async (operation: Operation) => {
-    await remove(operation.id);
+    if (!(await run(() => remove(operation.id), 'Não foi possível excluir a operação.'))) return;
     toasts.show(`Operação de ${operation.ticker} excluída.`, {
-      action: { label: 'Desfazer', run: () => void addMany([operation]) },
+      action: {
+        label: 'Desfazer',
+        run: () => void run(() => addMany([operation]), 'Não foi possível desfazer a exclusão.'),
+      },
     });
   };
 
   const handleClear = async () => {
-    const snapshot = { operations, paid: [...paidMonths] };
+    const snapshot = { operations, paid: toPaidMarks(paid) };
     setIsClearing(false);
-    await clear();
+    if (!(await run(clear, 'Não foi possível apagar as operações.'))) return;
     toasts.show('Todas as operações foram apagadas.', {
-      action: { label: 'Desfazer', run: () => void restore(snapshot.operations, snapshot.paid) },
+      action: {
+        label: 'Desfazer',
+        run: () =>
+          void run(() => merge(snapshot.operations, snapshot.paid), 'Não foi possível desfazer.'),
+      },
     });
   };
 
@@ -269,7 +332,13 @@ function OperationsContent() {
       />
       <Reveal>
         <section aria-label="Lista de operações" className="card overflow-hidden">
-          <FilterBar filters={filters} onChange={setFilters} />
+          <FilterBar
+            filters={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(0);
+            }}
+          />
           {visible.length === 0 ? (
             <div className="flex flex-col items-center px-6 py-14 text-center">
               <span className="flex size-12 items-center justify-center rounded-full bg-accent-surface text-accent">
@@ -291,16 +360,18 @@ function OperationsContent() {
                 </button>
               )}
             </div>
+          ) : isWide ? (
+            <OperationsTable operations={shown} {...rowActions} />
           ) : (
-            <>
-              <OperationsTable operations={visible} {...rowActions} />
-              <OperationCards operations={visible} {...rowActions} />
-            </>
+            <OperationCards operations={shown} {...rowActions} />
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft p-3">
             <p className="text-xs text-muted" aria-live="polite">
-              {plural(visible.length, 'operação exibida', 'operações exibidas')}
+              {visible.length === 0
+                ? '0 operações exibidas'
+                : `${current * PAGE_SIZE + 1}–${current * PAGE_SIZE + shown.length} de ${plural(visible.length, 'operação', 'operações')}`}
             </p>
+            <Pager page={current} pages={pages} onPage={setPage} />
             <div className="flex gap-2">
               <button
                 type="button"
@@ -326,11 +397,17 @@ function OperationsContent() {
           </div>
         </section>
       </Reveal>
-      <OperationDialog open={isDialogOpen} editing={editing} onClose={closeDialog} onSave={save} />
+      <OperationDialog
+        open={isDialogOpen}
+        editing={editing}
+        defaultTicker={defaultTicker}
+        onClose={closeDialog}
+        onSave={save}
+      />
       <ConfirmDialog
         open={isClearing}
         title="Apagar todas as operações?"
-        message={`As ${plural(operations.length, 'operação', 'operações')} e os DARFs marcados como pagos serão removidos deste navegador. Você poderá desfazer logo em seguida.`}
+        message={`As ${plural(operations.length, 'operação', 'operações')} e os DARFs marcados como pagos serão removidos deste navegador. Você pode desfazer logo em seguida, mas só um backup garante a recuperação depois.`}
         confirmLabel="Apagar tudo"
         onConfirm={() => void handleClear()}
         onCancel={() => setIsClearing(false)}

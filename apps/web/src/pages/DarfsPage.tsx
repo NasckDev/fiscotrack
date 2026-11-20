@@ -6,13 +6,16 @@ import { useToasts } from '../components/Toasts';
 import { Money, Notice, PageHeader, StatusBadge } from '../components/ui';
 import {
   DARF_REVENUE_CODE,
-  daysBetween,
   darfStatus,
+  daysBetween,
+  dueCountdown,
   todayIso,
   type DarfEntry,
   type DarfStatus,
 } from '../domain/darf';
 import { formatDate, formatMonth, formatMonthTitle, plural } from '../domain/format';
+import { useOperations } from '../state/OperationsContext';
+import { useRunner } from '../state/useRunner';
 import { useFinance } from '../state/useFinance';
 
 const STATUS_VIEW: Record<
@@ -25,28 +28,42 @@ const STATUS_VIEW: Record<
   pending: { tone: 'info', label: 'Pendente' },
 };
 
+/** Pago: só informa o vencimento (no passado ou no futuro). Em aberto: contagem até o prazo. */
 function dueText(entry: DarfEntry, today: string): string {
-  if (entry.paid) return `Venceu em ${formatDate(entry.dueDate)}`;
-  const days = daysBetween(today, entry.dueDate);
-  if (days < 0) return `Venceu há ${plural(-days, 'dia', 'dias')}`;
-  if (days === 0) return 'Vence hoje';
-  return `Vence em ${plural(days, 'dia', 'dias')}`;
+  if (entry.paid) {
+    return daysBetween(today, entry.dueDate) < 0
+      ? `Venceu em ${formatDate(entry.dueDate)}`
+      : `Vence em ${formatDate(entry.dueDate)}`;
+  }
+  return dueCountdown(entry.dueDate, today).text;
 }
 
 function DarfRow({ entry, today }: { readonly entry: DarfEntry; readonly today: string }) {
-  const { setDarfPaid } = useFinance();
+  const { markPaid, unmarkPaid } = useOperations();
   const toasts = useToasts();
+  const run = useRunner();
   const status = STATUS_VIEW[darfStatus(entry, today)];
+  const label = formatMonth(entry.month);
 
-  const toggle = () => {
+  const toggle = async () => {
     const next = !entry.paid;
-    void setDarfPaid(entry.month, next).then(() =>
-      toasts.show(
-        next
-          ? `DARF de ${formatMonth(entry.month)} marcado como pago.`
-          : `DARF de ${formatMonth(entry.month)} voltou para pendente.`,
-        { action: { label: 'Desfazer', run: () => void setDarfPaid(entry.month, entry.paid) } },
-      ),
+    const ok = await run(
+      () => (next ? markPaid(entry.month, entry.amountCents) : unmarkPaid(entry.month)),
+      'Não foi possível atualizar o status do DARF.',
+    );
+    if (!ok) return;
+    toasts.show(
+      next ? `DARF de ${label} marcado como pago.` : `DARF de ${label} voltou para pendente.`,
+      {
+        action: {
+          label: 'Desfazer',
+          run: () =>
+            void run(
+              () => (next ? unmarkPaid(entry.month) : markPaid(entry.month, entry.amountCents)),
+              'Não foi possível desfazer.',
+            ),
+        },
+      },
     );
   };
 
@@ -61,13 +78,19 @@ function DarfRow({ entry, today }: { readonly entry: DarfEntry; readonly today: 
           Vencimento <span className="num">{formatDate(entry.dueDate)}</span> ·{' '}
           {dueText(entry, today)} · código {DARF_REVENUE_CODE}
         </p>
+        {entry.amountChanged && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-warning">
+            <Icon name="alert" size={14} />O valor mudou desde o pagamento: confira e marque de
+            novo.
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between gap-4 sm:justify-end">
         <Money cents={entry.amountCents} className="text-lg font-bold" />
         <button
           type="button"
           className={`btn ${entry.paid ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={toggle}
+          onClick={() => void toggle()}
         >
           <Icon name={entry.paid ? 'undo' : 'check'} size={16} />
           {entry.paid ? 'Marcar como pendente' : 'Marcar como pago'}
@@ -81,9 +104,8 @@ function DarfsContent() {
   const { darfs } = useFinance();
   const today = todayIso();
   const sorted = [...darfs].reverse();
-  const openTotal = darfs
-    .filter((entry) => !entry.paid)
-    .reduce((sum, entry) => sum + entry.amountCents, 0);
+  const open = darfs.filter((entry) => !entry.paid);
+  const openTotal = open.reduce((sum, entry) => sum + entry.amountCents, 0);
   const paidTotal = darfs
     .filter((entry) => entry.paid)
     .reduce((sum, entry) => sum + entry.amountCents, 0);
@@ -111,30 +133,27 @@ function DarfsContent() {
         </Notice>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <Reveal index={0}>
-              <div className="card p-4 sm:p-5">
+          <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4">
+            <Reveal index={0} className="h-full">
+              <div className="card h-full p-4 sm:p-5">
                 <p className="text-sm font-semibold text-muted">Em aberto</p>
                 <p className="mt-2 text-lg font-bold sm:text-2xl">
                   <Money cents={openTotal} />
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  {plural(
-                    darfs.filter((entry) => !entry.paid).length,
-                    'DARF pendente',
-                    'DARFs pendentes',
-                  )}
+                  {plural(open.length, 'DARF pendente', 'DARFs pendentes')}
                 </p>
               </div>
             </Reveal>
-            <Reveal index={1}>
-              <div className="card p-4 sm:p-5">
+            <Reveal index={1} className="h-full">
+              <div className="card h-full p-4 sm:p-5">
                 <p className="text-sm font-semibold text-muted">Já pago</p>
                 <p className="mt-2 text-lg font-bold sm:text-2xl">
                   <Money cents={paidTotal} />
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  Total marcado como pago: {formatBRL(paidTotal)}
+                  {plural(darfs.length - open.length, 'DARF pago', 'DARFs pagos')} ·{' '}
+                  {formatBRL(paidTotal)}
                 </p>
               </div>
             </Reveal>

@@ -46,11 +46,19 @@ function monthOf(isoDate: string): string {
   return isoDate.slice(0, 7);
 }
 
-/** Ordena por data mantendo a ordem de entrada dentro do mesmo dia. */
-function sortByDate(operations: readonly Operation[]): readonly Operation[] {
+/**
+ * Ordem cronológica das operações: data, depois "seq" (quando informado) e, por fim, a ordem de entrada.
+ * É a única regra de ordenação do motor e da carteira, para que ambos concordem no mesmo dia.
+ */
+export function sortOperations(operations: readonly Operation[]): readonly Operation[] {
   return operations
     .map((operation, index) => ({ operation, index }))
-    .sort((a, b) => a.operation.date.localeCompare(b.operation.date) || a.index - b.index)
+    .sort(
+      (a, b) =>
+        a.operation.date.localeCompare(b.operation.date) ||
+        (a.operation.seq ?? 0) - (b.operation.seq ?? 0) ||
+        a.index - b.index,
+    )
     .map(({ operation }) => operation);
 }
 
@@ -167,7 +175,7 @@ export function calculateReport(
   ruleSets: readonly RuleSet[] = BR_RENDA_VARIAVEL_RULESETS,
 ): Report {
   const initial: LedgerState = { book: new Map(), months: new Map(), issues: [] };
-  const ledger = sortByDate(operations).reduce(
+  const ledger = sortOperations(operations).reduce(
     (state, operation) => applyToLedger(state, operation, ruleSets),
     initial,
   );

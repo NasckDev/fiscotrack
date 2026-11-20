@@ -1,6 +1,6 @@
 export * from './money';
 export * from './types';
-export { calculateReport } from './report';
+export { calculateReport, sortOperations } from './report';
 export { averagePriceCents, applyOperation, positionKey } from './positions';
 export type { PositionBook, RealizedSale, ApplyOutcome } from './positions';
 export { computeCategoryResult, isExemptMonth } from './category';

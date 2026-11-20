@@ -106,7 +106,7 @@ function PaletteBody({ onClose, onShowShortcuts }: Omit<CommandPaletteProps, 'op
           className="pointer-events-none absolute top-3.5 left-3 text-muted"
         />
         <input
-          autoFocus
+          data-autofocus
           role="combobox"
           aria-expanded="true"
           aria-controls="palette-list"

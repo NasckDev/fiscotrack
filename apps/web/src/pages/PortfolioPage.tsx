@@ -30,7 +30,7 @@ function HoldingsTable({ holdings }: { readonly holdings: readonly Holding[] }) 
             Custo total
           </th>
           <th scope="col" className="px-3 py-3 text-right font-medium">
-            Resultado realizado
+            Resultado realizado (comum)
           </th>
           <th scope="col" className="px-3 py-3">
             <span className="sr-only">Detalhe</span>
@@ -62,6 +62,11 @@ function HoldingsTable({ holdings }: { readonly holdings: readonly Holding[] }) 
             </td>
             <td className="px-3 py-3 text-right">
               <Money cents={holding.realizedCents} signed />
+              {holding.realizedDayTradeCents !== 0 && (
+                <span className="block text-xs text-muted">
+                  + day trade <Money cents={holding.realizedDayTradeCents} signed />
+                </span>
+              )}
             </td>
             <td className="px-3 py-3 text-right text-muted">
               <Icon name="chevron-right" size={16} />
@@ -111,7 +116,10 @@ function HoldingCards({ holdings }: { readonly holdings: readonly Holding[] }) {
 function PortfolioContent() {
   const { holdings, investedCents } = useFinance();
   const open = holdings.filter((holding) => holding.quantity > 0);
-  const realized = holdings.reduce((sum, holding) => sum + holding.realizedCents, 0);
+  const realized = holdings.reduce(
+    (sum, holding) => sum + holding.realizedCents + holding.realizedDayTradeCents,
+    0,
+  );
 
   return (
     <div className="space-y-4">
@@ -119,18 +127,22 @@ function PortfolioContent() {
         title="Carteira"
         description={`${plural(open.length, 'ativo em carteira', 'ativos em carteira')} · preço médio calculado pelo mesmo motor da apuração`}
       />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Reveal index={0}>
           <Kpi label="Patrimônio ao custo" icon="wallet" hint="Soma do custo das posições abertas">
             <Money cents={investedCents} />
           </Kpi>
         </Reveal>
         <Reveal index={1}>
-          <Kpi label="Resultado realizado" icon="trend-up" hint="Em vendas, líquido de custos">
+          <Kpi
+            label="Resultado realizado"
+            icon="trend-up"
+            hint="Comum e day trade, líquido de custos"
+          >
             <Money cents={realized} signed />
           </Kpi>
         </Reveal>
-        <Reveal index={2}>
+        <Reveal index={2} className="col-span-2 sm:col-span-1">
           <Kpi label="Ativos negociados" icon="operations" hint="Inclui posições encerradas">
             <span className="num">{holdings.length}</span>
           </Kpi>

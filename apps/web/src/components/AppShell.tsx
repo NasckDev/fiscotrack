@@ -2,6 +2,10 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { NAV_ITEMS, TAB_ITEMS } from '../navigation';
+import { DB_ISSUE_EVENT } from '../storage/operationsRepository';
+import { ExampleBanner, FirstVisitLoader } from './ExampleBanner';
+import { MobileMenu } from './MobileMenu';
+import { useToasts } from './Toasts';
 import { CommandPalette } from './CommandPalette';
 import { Disclaimer } from './Disclaimer';
 import { Icon } from './Icon';
@@ -78,7 +82,7 @@ function Sidebar({ openPalette, openShortcuts }: ShellActions) {
             href={REPOSITORY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg px-2 py-2 text-xs text-muted hover:text-ink"
+            className="inline-flex min-h-11 items-center rounded-lg px-2 text-xs text-muted hover:text-ink"
           >
             Código no GitHub
           </a>
@@ -99,7 +103,10 @@ function Sidebar({ openPalette, openShortcuts }: ShellActions) {
   );
 }
 
-function MobileHeader({ openPalette }: Pick<ShellActions, 'openPalette'>) {
+function MobileHeader({
+  openPalette,
+  openMenu,
+}: Pick<ShellActions, 'openPalette'> & { readonly openMenu: () => void }) {
   return (
     <header className="glass sticky top-0 z-30 flex h-[var(--ft-header-height)] items-center justify-between border-b border-line-soft px-4 lg:hidden">
       <span className="flex items-center gap-2.5">
@@ -113,16 +120,21 @@ function MobileHeader({ openPalette }: Pick<ShellActions, 'openPalette'>) {
           <Icon name="search" />
         </button>
         <ThemeToggle />
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Menu: importar, regras e configurações"
+          aria-haspopup="dialog"
+          onClick={openMenu}
+        >
+          <Icon name="settings" />
+        </button>
       </span>
     </header>
   );
 }
 
 function TabBar() {
-  const { pathname } = useLocation();
-  const moreActive = !TAB_ITEMS.some((item) =>
-    item.to === '/' ? pathname === '/' : pathname.startsWith(item.to),
-  );
   return (
     <nav
       aria-label="Principal"
@@ -134,14 +146,6 @@ function TabBar() {
           {item.shortLabel}
         </NavLink>
       ))}
-      <NavLink
-        to="/mais"
-        className={() => tabLinkClass({ isActive: moreActive })}
-        aria-current={moreActive ? 'page' : undefined}
-      >
-        <Icon name="more" size={22} />
-        Mais
-      </NavLink>
     </nav>
   );
 }
@@ -200,6 +204,15 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
   const reduceMotion = useReducedMotion() ?? false;
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const toasts = useToasts();
+  useEffect(() => {
+    const handler = (event: Event) => {
+      toasts.show(String((event as CustomEvent<string>).detail), { tone: 'danger' });
+    };
+    window.addEventListener(DB_ISSUE_EVENT, handler);
+    return () => window.removeEventListener(DB_ISSUE_EVENT, handler);
+  }, [toasts]);
   const openPalette = useCallback(() => setIsPaletteOpen(true), []);
   const openShortcuts = useCallback(() => {
     setIsPaletteOpen(false);
@@ -214,9 +227,11 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
       </a>
       <ScrollToTop />
       <Sidebar openPalette={openPalette} openShortcuts={openShortcuts} />
-      <MobileHeader openPalette={openPalette} />
+      <MobileHeader openPalette={openPalette} openMenu={() => setIsMenuOpen(true)} />
       <div className="flex min-h-[calc(100vh-var(--ft-header-height))] flex-col lg:min-h-screen lg:pl-[var(--ft-sidebar-width)]">
         <Disclaimer />
+        <FirstVisitLoader />
+        <ExampleBanner />
         <main
           id="conteudo"
           tabIndex={-1}
@@ -233,7 +248,7 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
         </main>
         <footer className="px-4 pt-6 pb-[calc(var(--ft-tabbar-height)+env(safe-area-inset-bottom)+1rem)] text-center text-xs text-muted lg:hidden">
           Projeto open source educacional · MIT ·{' '}
-          <a href={REPOSITORY_URL} className="link">
+          <a href={REPOSITORY_URL} className="link inline-flex min-h-11 items-center">
             GitHub
           </a>
         </footer>
@@ -245,6 +260,7 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
         onShowShortcuts={openShortcuts}
       />
       <ShortcutsModal open={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
+      <MobileMenu open={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </div>
   );
 }

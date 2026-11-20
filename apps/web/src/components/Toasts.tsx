@@ -44,10 +44,8 @@ export function ToastProvider({ children }: { readonly children: ReactNode }) {
   const show = useCallback(
     (message: string, options: ToastOptions = {}) => {
       const id = nextId.current++;
-      setToasts((current) => [
-        ...current.slice(-2),
-        { id, message, tone: options.tone ?? 'success', action: options.action },
-      ]);
+      // No máximo um aviso por vez: o novo substitui o anterior e nunca cobre mais conteúdo.
+      setToasts([{ id, message, tone: options.tone ?? 'success', action: options.action }]);
       window.setTimeout(() => dismiss(id), options.durationMs ?? DEFAULT_DURATION_MS);
     },
     [dismiss],

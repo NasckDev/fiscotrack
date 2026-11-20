@@ -4,6 +4,8 @@ import { buildDarfs, todayIso } from '../domain/darf';
 import { buildExampleOperations } from '../domain/example';
 import { useOperations } from './OperationsContext';
 
+export const EXAMPLE_ID_PREFIX = 'exemplo-';
+
 type LoaderState = 'idle' | 'working' | 'failed';
 
 /**
@@ -11,7 +13,7 @@ type LoaderState = 'idle' | 'working' | 'failed';
  * para o exemplo mostrar um histórico em dia e um DARF próximo de vencer.
  */
 export function useExampleLoader() {
-  const { addMany, setDarfPaid } = useOperations();
+  const { addMany, markPaid } = useOperations();
   const [state, setState] = useState<LoaderState>('idle');
 
   const load = useCallback(async (): Promise<boolean> => {
@@ -20,9 +22,9 @@ export function useExampleLoader() {
       const operations = buildExampleOperations();
       await addMany(operations);
       const today = todayIso();
-      const darfs = buildDarfs(calculateReport(operations).months, new Set());
+      const darfs = buildDarfs(calculateReport(operations).months, new Map());
       for (const entry of darfs.filter((darf) => darf.dueDate < today)) {
-        await setDarfPaid(entry.month, true);
+        await markPaid(entry.month, entry.amountCents);
       }
       setState('idle');
       return true;
@@ -30,7 +32,7 @@ export function useExampleLoader() {
       setState('failed');
       return false;
     }
-  }, [addMany, setDarfPaid]);
+  }, [addMany, markPaid]);
 
   return { load, isWorking: state === 'working', hasFailed: state === 'failed' };
 }

@@ -26,8 +26,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/config', label: 'Configurações', shortLabel: 'Config.', icon: 'settings', goKey: 'e' },
 ];
 
-/** Itens da barra inferior no celular; o resto fica em "Mais". */
-export const TAB_ITEMS: readonly NavItem[] = NAV_ITEMS.slice(0, 4);
+/** Itens da barra inferior no celular. */
+export const TAB_ITEMS: readonly NavItem[] = NAV_ITEMS.filter((item) =>
+  ['/', '/carteira', '/operacoes', '/apuracao', '/darfs'].includes(item.to),
+);
+
+/** Itens fora da barra inferior: abrem pelo menu do header no celular. */
+export const MENU_ITEMS: readonly NavItem[] = NAV_ITEMS.filter((item) => !TAB_ITEMS.includes(item));
 
 export const SHORTCUTS: readonly { keys: readonly string[]; label: string }[] = [
   { keys: ['Ctrl', 'K'], label: 'Abrir a paleta de comandos (⌘ K no Mac)' },

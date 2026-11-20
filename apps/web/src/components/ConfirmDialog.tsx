@@ -22,7 +22,7 @@ export function ConfirmDialog({
     <Modal open={open} title={title} onClose={onCancel} size="sm">
       <p className="text-muted">{message}</p>
       <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+        <button type="button" className="btn btn-secondary" data-autofocus onClick={onCancel}>
           Cancelar
         </button>
         <button

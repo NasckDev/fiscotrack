@@ -1,5 +1,5 @@
 import type { Operation } from '@fiscotrack/engine';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { csvRowSchema, rowToOperation } from '../domain/csv';
 import { centsToInput } from '../domain/csvExport';
 import { todayIso } from '../domain/darf';
@@ -13,8 +13,11 @@ interface OperationDialogProps {
   readonly open: boolean;
   /** Operação em edição; `null` cria uma nova. */
   readonly editing: Operation | null;
+  /** Ticker já preenchido ao criar (ex.: "Nova operação deste ativo"). */
+  readonly defaultTicker?: string;
   readonly onClose: () => void;
-  readonly onSave: (operation: Operation, isEdit: boolean) => Promise<void>;
+  /** Devolve uma mensagem de erro (mostrada no diálogo) ou null quando salvou. */
+  readonly onSave: (operation: Operation, isEdit: boolean) => Promise<string | null>;
 }
 
 function readForm(form: HTMLFormElement): Record<string, string> {
@@ -59,9 +62,26 @@ function errorProps(name: FieldName, errors: FieldErrors) {
   } as const;
 }
 
-function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 'open'>) {
+/** Cria o `seq` de uma operação nova; edições preservam o original. */
+const newSeq = () => Date.now() * 1000;
+
+function OperationForm({
+  editing,
+  defaultTicker,
+  onClose,
+  onSave,
+}: Omit<OperationDialogProps, 'open'>) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Leva o foco ao primeiro campo inválido depois que os erros aparecem.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [errors]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -76,10 +96,13 @@ function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 
       return;
     }
     setErrors({});
+    setSaveError(null);
     setIsSaving(true);
     const id = editing?.id ?? `manual-${crypto.randomUUID()}`;
     try {
-      await onSave(rowToOperation(parsed.data, id), editing !== null);
+      setSaveError(
+        await onSave(rowToOperation(parsed.data, id, editing?.seq ?? newSeq()), editing !== null),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -87,6 +110,7 @@ function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 
 
   return (
     <form
+      ref={formRef}
       className="grid grid-cols-2 gap-4"
       onSubmit={(event) => void handleSubmit(event)}
       noValidate
@@ -98,6 +122,7 @@ function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 
           required
           max={todayIso()}
           defaultValue={editing?.date}
+          data-autofocus
           className="input"
         />
       </Field>
@@ -107,7 +132,7 @@ function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 
           required
           placeholder="PETR4"
           autoCapitalize="characters"
-          defaultValue={editing?.ticker}
+          defaultValue={editing?.ticker ?? defaultTicker}
           className="input uppercase"
         />
       </Field>
@@ -168,6 +193,14 @@ function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 
           Corrija os campos destacados e salve de novo.
         </p>
       )}
+      {saveError !== null && (
+        <p
+          role="alert"
+          className="col-span-2 rounded-lg bg-danger-surface p-3 text-sm font-medium text-danger"
+        >
+          {saveError}
+        </p>
+      )}
       <div className="col-span-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" className="btn btn-secondary" onClick={onClose}>
           Cancelar
@@ -182,10 +215,21 @@ function OperationForm({ editing, onClose, onSave }: Omit<OperationDialogProps, 
 }
 
 /** Diálogo para lançar ou editar uma operação, com erro ligado a cada campo. */
-export function OperationDialog({ open, editing, onClose, onSave }: OperationDialogProps) {
+export function OperationDialog({
+  open,
+  editing,
+  defaultTicker,
+  onClose,
+  onSave,
+}: OperationDialogProps) {
   return (
     <Modal open={open} title={editing ? 'Editar operação' : 'Nova operação'} onClose={onClose}>
-      <OperationForm editing={editing} onClose={onClose} onSave={onSave} />
+      <OperationForm
+        editing={editing}
+        defaultTicker={defaultTicker}
+        onClose={onClose}
+        onSave={onSave}
+      />
     </Modal>
   );
 }

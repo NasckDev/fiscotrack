@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseBackup, serializeBackup } from '../src/domain/backup';
 import {
   applyMapping,
+  parseOperationsCsv,
   missingRequired,
   readCsvTable,
   suggestMapping,
@@ -11,7 +12,7 @@ import { operationsToCsv } from '../src/domain/csvExport';
 import { buildDarfs, darfDueDate, darfStatus, daysBetween, nextDarf } from '../src/domain/darf';
 import { buildExampleOperations } from '../src/domain/example';
 import { buildPortfolio, totalInvestedCents } from '../src/domain/portfolio';
-import { parseOperationsCsv } from '../src/domain/csv';
+import { findDuplicates } from '../src/domain/csvMapping';
 
 const NOW = new Date(2026, 10, 19);
 
@@ -33,9 +34,27 @@ describe('darf', () => {
 
   it('classifica o status e escolhe o próximo DARF em aberto', () => {
     const entries = [
-      { month: '2026-08', dueDate: '2026-09-30', amountCents: 100, paid: true },
-      { month: '2026-09', dueDate: '2026-10-30', amountCents: 200, paid: false },
-      { month: '2026-10', dueDate: '2026-11-30', amountCents: 300, paid: false },
+      {
+        month: '2026-08',
+        dueDate: '2026-09-30',
+        amountCents: 100,
+        paid: true,
+        amountChanged: false,
+      },
+      {
+        month: '2026-09',
+        dueDate: '2026-10-30',
+        amountCents: 200,
+        paid: false,
+        amountChanged: false,
+      },
+      {
+        month: '2026-10',
+        dueDate: '2026-11-30',
+        amountCents: 300,
+        paid: false,
+        amountChanged: false,
+      },
     ];
     const today = '2026-11-25';
     expect(darfStatus(entries[0]!, today)).toBe('paid');
@@ -57,7 +76,7 @@ describe('exemplo', () => {
   });
 
   it('inclui prejuízo, mês isento e DARFs, com o último vencendo depois de hoje', () => {
-    const darfs = buildDarfs(report.months, new Set());
+    const darfs = buildDarfs(report.months, new Map());
     expect(darfs.length).toBeGreaterThanOrEqual(2);
     expect(report.months.some((month) => month.swing.exempt)).toBe(true);
     expect(report.months.some((month) => month.swing.grossResultCents < 0)).toBe(true);
@@ -80,7 +99,10 @@ describe('portfolio', () => {
 });
 
 describe('backup', () => {
-  const data = { operations: buildExampleOperations(NOW), paidDarfs: ['2026-09'] };
+  const data = {
+    operations: buildExampleOperations(NOW),
+    paidDarfs: [{ month: '2026-09', amountCents: 12345 }],
+  };
 
   it('faz ida e volta sem perder dados', () => {
     const result = parseBackup(serializeBackup(data, NOW));
@@ -117,7 +139,7 @@ describe('mapeamento de CSV', () => {
 
   it('converte linhas válidas e aponta erros por linha', () => {
     const table = readCsvTable(text);
-    const result = applyMapping(table, suggestMapping(table.headers), (line) => `t-${line}`);
+    const result = applyMapping(table, suggestMapping(table.headers), { seqBase: 1 });
     expect(result.operations).toHaveLength(1);
     expect(result.operations[0]).toMatchObject({ ticker: 'PETR4', side: 'BUY', quantity: 100 });
     expect(result.errors).toHaveLength(1);
@@ -135,7 +157,117 @@ describe('exportação de CSV', () => {
     const operations = buildExampleOperations(NOW);
     const result = parseOperationsCsv(operationsToCsv(operations));
     expect(result.errors).toEqual([]);
-    const withoutId = (list: readonly object[]) => list.map((item) => ({ ...item, id: '' }));
+    const withoutId = (list: readonly object[]) =>
+      list.map((item) => ({ ...item, id: '', seq: 0 }));
     expect(withoutId(result.operations)).toEqual(withoutId(operations));
+  });
+});
+
+describe('darf pago com valor alterado', () => {
+  const months = calculateReport(buildExampleOperations(NOW)).months;
+  const last = months[months.length - 1]!;
+
+  it('continua pago quando o valor é o mesmo ou desconhecido (dado antigo)', () => {
+    const same = buildDarfs(months, new Map([[last.month, last.darfDueCents]]));
+    const legacy = buildDarfs(months, new Map([[last.month, null]]));
+    expect(same.find((entry) => entry.month === last.month)?.paid).toBe(true);
+    expect(legacy.find((entry) => entry.month === last.month)?.paid).toBe(true);
+  });
+
+  it('volta a pendente, com aviso, quando o valor mudou', () => {
+    const changed = buildDarfs(months, new Map([[last.month, last.darfDueCents + 100]]));
+    const entry = changed.find((item) => item.month === last.month)!;
+    expect(entry.paid).toBe(false);
+    expect(entry.amountChanged).toBe(true);
+  });
+});
+
+describe('backup: robustez', () => {
+  const valid = serializeBackup({ operations: [], paidDarfs: [] }, NOW);
+
+  it('ignora BOM no início do arquivo', () => {
+    expect(parseBackup(String.fromCharCode(0xfeff) + valid).ok).toBe(true);
+  });
+
+  it('lê a versão 1 (pagamentos sem valor)', () => {
+    const v1 = JSON.stringify({
+      app: 'fiscotrack',
+      version: 1,
+      exportedAt: 'x',
+      operations: [],
+      paidDarfs: ['2026-09'],
+    });
+    expect(parseBackup(v1)).toEqual({
+      ok: true,
+      data: { operations: [], paidDarfs: [{ month: '2026-09', amountCents: null }] },
+    });
+  });
+
+  it('explica versão desconhecida, data inexistente e ids repetidos', () => {
+    const op = {
+      id: 'a',
+      date: '2026-01-10',
+      ticker: 'PETR4',
+      side: 'BUY',
+      quantity: 1,
+      unitPriceCents: 1,
+      feesCents: 0,
+      category: 'SWING',
+    };
+    const base = { app: 'fiscotrack', exportedAt: 'x', paidDarfs: [] };
+    const future = parseBackup(JSON.stringify({ ...base, version: 9, operations: [] }));
+    expect(future.ok === false && future.message).toMatch(/versão 9/);
+    const badDate = parseBackup(
+      JSON.stringify({ ...base, version: 2, operations: [{ ...op, date: '2026-02-31' }] }),
+    );
+    expect(badDate.ok === false && badDate.message).toMatch(/data inexistente/);
+    const duplicated = parseBackup(JSON.stringify({ ...base, version: 2, operations: [op, op] }));
+    expect(duplicated.ok === false && duplicated.message).toMatch(/mais de uma vez/);
+  });
+});
+
+describe('duplicatas na importação', () => {
+  it('marca operações iguais (data, ativo, lado, quantidade e preço) às já salvas', () => {
+    const saved = buildExampleOperations(NOW);
+    const incoming = [
+      { ...saved[0]!, id: 'novo-1' },
+      { ...saved[0]!, id: 'novo-2', quantity: 7 },
+    ];
+    expect([...findDuplicates(incoming, saved)]).toEqual(['novo-1']);
+  });
+});
+
+describe('carteira no mesmo dia', () => {
+  it('usa seq e não o id para ordenar compra e venda do mesmo dia', () => {
+    const base = {
+      date: '2026-03-02',
+      ticker: 'PETR4',
+      quantity: 100,
+      unitPriceCents: 3000,
+      feesCents: 0,
+      category: 'SWING' as const,
+    };
+    const holdings = buildPortfolio([
+      { ...base, id: 'a-venda', side: 'SELL', seq: 2 },
+      { ...base, id: 'z-compra', side: 'BUY', seq: 1 },
+    ]);
+    expect(holdings[0]?.quantity).toBe(0);
+    expect(holdings[0]?.realizedCents).toBe(0);
+  });
+
+  it('separa o resultado de day trade do resultado comum', () => {
+    const base = {
+      date: '2026-03-02',
+      ticker: 'BBAS3',
+      quantity: 100,
+      feesCents: 0,
+      category: 'DAY_TRADE' as const,
+    };
+    const [holding] = buildPortfolio([
+      { ...base, id: 'c', side: 'BUY', unitPriceCents: 2000, seq: 1 },
+      { ...base, id: 'v', side: 'SELL', unitPriceCents: 2100, seq: 2 },
+    ]);
+    expect(holding?.realizedCents).toBe(0);
+    expect(holding?.realizedDayTradeCents).toBe(10_000);
   });
 });

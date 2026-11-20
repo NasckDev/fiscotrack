@@ -346,3 +346,21 @@ describe('calculateReport — explicação passo a passo', () => {
     expect(last?.detail).toMatch(/trazidos de meses anteriores/);
   });
 });
+
+describe('ordem no mesmo dia', () => {
+  it('usa seq (e não o id) para decidir quem vem primeiro', () => {
+    const sale = sell({ id: 'a-venda', date: '2024-02-01', quantity: 100, seq: 2 });
+    const purchase = buy({ id: 'z-compra', date: '2024-02-01', quantity: 100, seq: 1 });
+    const report = calculateReport([sale, purchase]);
+    expect(report.issues).toEqual([]);
+    expect(report.positions).toEqual([]);
+  });
+
+  it('sem seq mantém a ordem de entrada', () => {
+    const report = calculateReport([
+      buy({ id: 'z', date: '2024-02-01' }),
+      sell({ id: 'a', date: '2024-02-01' }),
+    ]);
+    expect(report.issues).toEqual([]);
+  });
+});

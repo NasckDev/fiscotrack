@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { DataGate } from '../components/DataGate';
 import { Icon } from '../components/Icon';
 import { Notice, PageHeader } from '../components/ui';
-import { CSV_COLUMNS, type ImportResult } from '../domain/csv';
+import { CSV_COLUMNS, type ImportLineError } from '../domain/csv';
 import {
   COLUMN_LABELS,
   REQUIRED_COLUMNS,
@@ -15,7 +15,7 @@ import {
 } from '../domain/csvMapping';
 import { formatDateShort, plural, pluralWord } from '../domain/format';
 import { downloadText } from '../download';
-import { useCsvImport } from '../state/useCsvImport';
+import { useCsvImport, type ImportPreview } from '../state/useCsvImport';
 
 const PREVIEW_LIMIT = 5;
 const TEMPLATE = `${CSV_COLUMNS.join(';')}\n2026-01-08;PETR4;compra;100;38,20;4,90;comum\n`;
@@ -115,86 +115,147 @@ function MappingTable({
   );
 }
 
-function Preview({ result }: { result: ImportResult }) {
-  const shown = result.operations.slice(0, PREVIEW_LIMIT);
+function OperationsPreview({ preview }: { preview: ImportPreview }) {
+  const shown = preview.operations.slice(0, PREVIEW_LIMIT);
+  if (shown.length === 0) return null;
   return (
-    <div className="space-y-4" aria-live="polite">
-      <p className="text-sm">
-        <strong className="text-success">
-          {plural(result.operations.length, 'operação pronta', 'operações prontas')}
-        </strong>{' '}
-        para importar
-        {result.errors.length > 0 && (
-          <>
-            {' · '}
-            <strong className="text-danger">
-              {plural(result.errors.length, 'linha com erro', 'linhas com erro')}
-            </strong>{' '}
-            ({pluralWord(result.errors.length, 'não será importada', 'não serão importadas')})
-          </>
-        )}
-        .
-      </p>
-      {shown.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-line-soft">
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">Prévia das primeiras operações</caption>
-            <thead className="bg-card-subtle text-xs text-muted">
-              <tr>
-                {['Data', 'Ativo', 'Tipo', 'Qtd.', 'Preço'].map((label, index) => (
-                  <th
-                    key={label}
-                    scope="col"
-                    className={`px-2 py-2 font-medium sm:px-3 ${index > 2 ? 'text-right' : ''}`}
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((operation) => (
-                <tr key={operation.id} className="border-t border-line-soft">
-                  <td className="num px-2 py-2 sm:px-3">{formatDateShort(operation.date)}</td>
-                  <td className="px-2 py-2 font-bold sm:px-3">{operation.ticker}</td>
-                  <td className="px-2 py-2 sm:px-3">
-                    {operation.side === 'BUY' ? 'Compra' : 'Venda'}
-                  </td>
-                  <td className="num px-2 py-2 text-right sm:px-3">{operation.quantity}</td>
-                  <td className="num px-2 py-2 text-right sm:px-3">
-                    {formatBRL(operation.unitPriceCents)}
-                  </td>
-                </tr>
+    <>
+      <ul
+        className="divide-y divide-line-soft rounded-xl border border-line-soft sm:hidden"
+        aria-label="Prévia das primeiras operações"
+      >
+        {shown.map((operation) => (
+          <li
+            key={operation.id}
+            className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+          >
+            <span className="min-w-0">
+              <strong>{operation.ticker}</strong>{' '}
+              <span className="text-muted">{operation.side === 'BUY' ? 'Compra' : 'Venda'}</span>
+              <span className="num block text-xs text-muted">
+                {formatDateShort(operation.date)} · {operation.quantity} ×{' '}
+                {formatBRL(operation.unitPriceCents)}
+              </span>
+            </span>
+            {preview.duplicateIds.has(operation.id) && (
+              <span className="badge badge-warning">Repetida</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-xl border border-line-soft sm:block">
+        <table className="w-full text-left text-sm">
+          <caption className="sr-only">Prévia das primeiras operações</caption>
+          <thead className="bg-card-subtle text-xs text-muted">
+            <tr>
+              {['Data', 'Ativo', 'Tipo', 'Qtd.', 'Preço'].map((label, index) => (
+                <th
+                  key={label}
+                  scope="col"
+                  className={`px-3 py-2 font-medium ${index > 2 ? 'text-right' : ''}`}
+                >
+                  {label}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {result.errors.length > 0 && <LineErrors errors={result.errors} />}
-    </div>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((operation) => (
+              <tr key={operation.id} className="border-t border-line-soft">
+                <td className="num px-3 py-2">{formatDateShort(operation.date)}</td>
+                <td className="px-3 py-2 font-bold">
+                  {operation.ticker}{' '}
+                  {preview.duplicateIds.has(operation.id) && (
+                    <span className="badge badge-warning">Repetida</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">{operation.side === 'BUY' ? 'Compra' : 'Venda'}</td>
+                <td className="num px-3 py-2 text-right">{operation.quantity}</td>
+                <td className="num px-3 py-2 text-right">{formatBRL(operation.unitPriceCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
-function LineErrors({ errors }: { errors: ImportResult['errors'] }) {
+function LineErrors({
+  errors,
+  onEdit,
+}: {
+  errors: readonly ImportLineError[];
+  onEdit?: (line: number, text: string) => void;
+}) {
   return (
     <ul className="space-y-2" aria-label="Linhas com erro">
       {errors.map((error) => (
         <li
           key={error.line}
-          className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger-surface p-3 text-sm"
+          className="rounded-xl border border-danger/30 bg-danger-surface p-3 text-sm"
         >
-          <span className="badge badge-danger flex-none border border-danger/30">
-            Linha {error.line}
-          </span>
-          <span className="min-w-0">{error.messages.join(' ')}</span>
+          <div className="flex items-start gap-3">
+            <span className="badge badge-danger flex-none border border-danger/30">
+              Linha {error.line}
+            </span>
+            <span className="min-w-0 font-medium">{error.messages.join(' ')}</span>
+          </div>
+          {error.raw !== undefined &&
+            (onEdit ? (
+              <div className="field mt-2">
+                <label htmlFor={`linha-${error.line}`} className="text-xs text-muted">
+                  Corrigir a linha {error.line}
+                </label>
+                <input
+                  id={`linha-${error.line}`}
+                  className="input num"
+                  value={error.raw}
+                  onChange={(event) => onEdit(error.line, event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+            ) : (
+              <p className="num mt-2 break-all text-xs text-muted">{error.raw}</p>
+            ))}
         </li>
       ))}
     </ul>
   );
 }
 
+function PreviewSummary({ preview }: { preview: ImportPreview }) {
+  const duplicates = preview.duplicateIds.size;
+  return (
+    <p className="text-sm" aria-live="polite">
+      <strong className="text-success">
+        {plural(preview.toImport.length, 'operação pronta', 'operações prontas')}
+      </strong>{' '}
+      para importar
+      {preview.errors.length > 0 && (
+        <>
+          {' · '}
+          <strong className="text-danger">
+            {plural(preview.errors.length, 'linha com erro', 'linhas com erro')}
+          </strong>
+        </>
+      )}
+      {duplicates > 0 && (
+        <>
+          {' · '}
+          <strong className="text-warning">
+            {plural(duplicates, 'possível repetida', 'possíveis repetidas')}
+          </strong>
+        </>
+      )}
+      .
+    </p>
+  );
+}
+
 function ImportContent() {
-  const { state, preview, chooseFile, setColumn, confirm, reset } = useCsvImport();
+  const { state, preview, chooseFile, setColumn, editLine, setIgnoreDuplicates, confirm, reset } =
+    useCsvImport();
 
   return (
     <div>
@@ -223,17 +284,40 @@ function ImportContent() {
                 </span>
               </div>
               <div>
-                <h3 className="mb-3 font-bold">1. Confira as colunas</h3>
+                <h2 className="mb-3 font-bold">1. Confira as colunas</h2>
                 <MappingTable table={state.table} mapping={state.mapping} onChange={setColumn} />
               </div>
-              <div>
-                <h3 className="mb-3 font-bold">2. Revise a prévia</h3>
+              <div className="space-y-4">
+                <h2 className="font-bold">2. Revise a prévia</h2>
                 {missingRequired(state.mapping).length > 0 ? (
                   <p className="text-sm text-muted">
                     Escolha as colunas obrigatórias para ver a prévia.
                   </p>
                 ) : (
-                  <Preview result={preview} />
+                  <>
+                    <PreviewSummary preview={preview} />
+                    <OperationsPreview preview={preview} />
+                    {preview.duplicateIds.size > 0 && (
+                      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl bg-warning-surface p-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1 size-4 accent-[var(--ft-color-accent)]"
+                          checked={state.ignoreDuplicates}
+                          onChange={(event) => setIgnoreDuplicates(event.target.checked)}
+                        />
+                        <span>
+                          <strong>
+                            Ignorar as {preview.duplicateIds.size} possíveis repetidas.
+                          </strong>{' '}
+                          Elas têm a mesma data, ativo, tipo, quantidade e preço de operações já
+                          salvas.
+                        </span>
+                      </label>
+                    )}
+                    {preview.errors.length > 0 && (
+                      <LineErrors errors={preview.errors} onEdit={editLine} />
+                    )}
+                  </>
                 )}
               </div>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -244,12 +328,12 @@ function ImportContent() {
                   type="button"
                   className="btn btn-primary"
                   disabled={
-                    missingRequired(state.mapping).length > 0 || preview.operations.length === 0
+                    missingRequired(state.mapping).length > 0 || preview.toImport.length === 0
                   }
                   onClick={() => void confirm()}
                 >
                   <Icon name="check" size={16} />
-                  Importar {plural(preview.operations.length, 'operação', 'operações')}
+                  Importar {plural(preview.toImport.length, 'operação', 'operações')}
                 </button>
               </div>
             </section>
@@ -262,11 +346,13 @@ function ImportContent() {
             >
               <Notice
                 tone="success"
-                title={`${plural(state.imported, 'operação importada', 'operações importadas')}`}
+                title={plural(state.imported, 'operação importada', 'operações importadas')}
               >
+                {state.skipped > 0 &&
+                  `${plural(state.skipped, 'repetida ignorada', 'repetidas ignoradas')}. `}
                 {state.errors.length > 0
                   ? `${plural(state.errors.length, 'linha ficou de fora', 'linhas ficaram de fora')} por erro.`
-                  : 'Todas as linhas do arquivo foram importadas.'}
+                  : `Todas as linhas ${pluralWord(state.imported, 'válida foi importada', 'válidas foram importadas')}.`}
               </Notice>
               {state.errors.length > 0 && <LineErrors errors={state.errors} />}
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -281,7 +367,7 @@ function ImportContent() {
           )}
         </div>
         <aside className="card space-y-4 p-5" aria-label="Formato do arquivo">
-          <h3 className="font-bold">Formato do arquivo</h3>
+          <h2 className="font-bold">Formato do arquivo</h2>
           <ul className="flex flex-wrap gap-1.5">
             {CSV_COLUMNS.map((column) => (
               <li key={column}>
@@ -291,10 +377,13 @@ function ImportContent() {
           </ul>
           <ul className="space-y-1.5 text-sm text-muted">
             <li>
-              Separador <code>;</code> ou <code>,</code>
+              Separador <code>;</code>, <code>,</code> ou tabulação; campos com aspas funcionam
             </li>
             <li>
               Datas em <code>AAAA-MM-DD</code> ou <code>DD/MM/AAAA</code>
+            </li>
+            <li>
+              Quantidade com milhar (<code>1.000</code>) e preço com vírgula (<code>32,50</code>)
             </li>
             <li>Os nomes das colunas podem variar: você mapeia na próxima etapa.</li>
           </ul>

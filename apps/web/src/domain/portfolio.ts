@@ -1,6 +1,7 @@
 import {
   applyOperation,
   averagePriceCents,
+  sortOperations,
   type Operation,
   type Position,
 } from '@fiscotrack/engine';
@@ -18,14 +19,12 @@ export interface Holding {
   readonly quantity: number;
   readonly totalCostCents: number;
   readonly avgPriceCents: number;
-  /** Resultado realizado em vendas deste ativo, líquido de custos. */
+  /** Resultado realizado em vendas de operações comuns, líquido de custos. */
   readonly realizedCents: number;
+  /** Resultado realizado em day trade (fora da posição em carteira). */
+  readonly realizedDayTradeCents: number;
   readonly operations: readonly Operation[];
   readonly history: readonly HoldingPoint[];
-}
-
-function byDate(a: Operation, b: Operation): number {
-  return a.date.localeCompare(b.date) || a.id.localeCompare(b.id);
 }
 
 /**
@@ -33,8 +32,9 @@ function byDate(a: Operation, b: Operation): number {
  * Operações inconsistentes (venda sem posição) são ignoradas aqui e aparecem no relatório mensal.
  */
 export function buildPortfolio(operations: readonly Operation[]): readonly Holding[] {
-  const sorted = [...operations].sort(byDate);
+  const sorted = sortOperations(operations);
   const realized = new Map<string, number>();
+  const realizedDayTrade = new Map<string, number>();
   const history = new Map<string, HoldingPoint[]>();
   let book = new Map<string, Position>();
 
@@ -43,10 +43,8 @@ export function buildPortfolio(operations: readonly Operation[]): readonly Holdi
     if (!outcome.ok) continue;
     book = new Map(outcome.book);
     if (outcome.sale) {
-      realized.set(
-        operation.ticker,
-        (realized.get(operation.ticker) ?? 0) + outcome.sale.resultCents,
-      );
+      const target = operation.category === 'SWING' ? realized : realizedDayTrade;
+      target.set(operation.ticker, (target.get(operation.ticker) ?? 0) + outcome.sale.resultCents);
     }
     if (operation.category === 'SWING') {
       const position = book.get(`SWING:${operation.ticker}`);
@@ -68,6 +66,7 @@ export function buildPortfolio(operations: readonly Operation[]): readonly Holdi
       totalCostCents: position?.totalCostCents ?? 0,
       avgPriceCents: position ? averagePriceCents(position) : 0,
       realizedCents: realized.get(ticker) ?? 0,
+      realizedDayTradeCents: realizedDayTrade.get(ticker) ?? 0,
       operations: sorted.filter((operation) => operation.ticker === ticker),
       history: history.get(ticker) ?? [],
     };

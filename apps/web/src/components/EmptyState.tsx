@@ -65,9 +65,9 @@ export function EmptyState() {
       className="card mx-auto flex max-w-xl flex-col items-center px-5 py-10 text-center sm:px-10 sm:py-14"
     >
       <Illustration />
-      <h2 id="vazio-titulo" className="mt-6 text-2xl font-extrabold tracking-tight">
+      <h1 id="vazio-titulo" className="mt-6 text-2xl font-extrabold tracking-tight">
         Nenhuma operação ainda
-      </h2>
+      </h1>
       <p className="mt-2 max-w-md text-muted">
         Veja o FiscoTrack funcionando com operações de exemplo (dados fictícios) ou traga as suas:
         importe um CSV ou lance uma operação. Tudo fica só neste navegador.

@@ -1,10 +1,14 @@
 import { toCents, type Operation } from '@fiscotrack/engine';
 import { z } from 'zod';
+import { todayIso } from './darf';
+import { MAX_MONEY_REAIS, MAX_QUANTITY, parseInteger, parseMoney } from './numbers';
 
 export interface ImportLineError {
   /** Número da linha no arquivo (1 = cabeçalho). */
   readonly line: number;
   readonly messages: readonly string[];
+  /** Texto original da linha, para o usuário corrigir ali mesmo. */
+  readonly raw?: string;
 }
 
 export interface ImportResult {
@@ -30,27 +34,37 @@ function normalizeDate(value: string): string {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
 }
 
-function isRealDate(iso: string): boolean {
+/** Data AAAA-MM-DD que existe no calendário (rejeita 31/02 e 99/99). */
+export function isValidIsoDate(iso: string): boolean {
+  if (!ISO_DATE.test(iso)) return false;
   const parsed = new Date(`${iso}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(iso);
 }
 
-/** Aceita "1.234,56", "1234,56" e "1234.56". */
+/** Aceita "1.234,56", "1234,56" e "1234.56"; devolve NaN quando não é um número válido. */
 export function parseDecimal(raw: string): number {
-  const trimmed = raw.trim();
-  const normalized = trimmed.includes(',') ? trimmed.replace(/\./g, '').replace(',', '.') : trimmed;
-  return normalized === '' ? Number.NaN : Number(normalized);
+  const parsed = parseMoney(raw);
+  return parsed.ok ? parsed.value : Number.NaN;
 }
 
-const decimal = (label: string) =>
+const money = (label: string) =>
   z
     .string()
-    .transform(parseDecimal)
+    .transform((raw, context) => {
+      const parsed = parseMoney(raw);
+      if (!parsed.ok) {
+        context.addIssue({
+          code: 'custom',
+          message: label + ': digite um valor como 32,50 (use vírgula para os centavos).',
+        });
+        return z.NEVER;
+      }
+      return parsed.value;
+    })
     .pipe(
       z
-        .number({ error: `${label} não é um número.` })
-        .refine(Number.isFinite, `${label} não é um número.`)
-        .refine((value) => value >= 0, `${label} não pode ser negativo.`),
+        .number()
+        .max(MAX_MONEY_REAIS, label + ' acima do limite de R$ 10.000.000,00. Confira os zeros.'),
     );
 
 export const csvRowSchema = z.object({
@@ -58,43 +72,60 @@ export const csvRowSchema = z.object({
     .string()
     .trim()
     .transform(normalizeDate)
-    .refine((value) => ISO_DATE.test(value) && isRealDate(value), {
-      message: 'Data inválida (use AAAA-MM-DD ou DD/MM/AAAA).',
+    .superRefine((value, context) => {
+      if (!isValidIsoDate(value)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Informe a data como AAAA-MM-DD ou DD/MM/AAAA, por exemplo 15/03/2026.',
+        });
+      } else if (value > todayIso()) {
+        context.addIssue({ code: 'custom', message: 'A data não pode ser futura.' });
+      }
     }),
   ticker: z
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z0-9]{4,12}$/, 'Ticker inválido.'),
+    .regex(/^[A-Z0-9]{4,12}$/, 'Informe o ticker, por exemplo PETR4 (4 a 12 letras ou números).'),
   tipo: z
     .string()
     .trim()
     .toLowerCase()
-    .pipe(z.enum(['compra', 'venda'], { error: 'Tipo deve ser "compra" ou "venda".' })),
+    .pipe(z.enum(['compra', 'venda'], { error: 'Escolha "compra" ou "venda".' })),
   quantidade: z
     .string()
-    .trim()
-    .transform(Number)
+    .transform((raw, context) => {
+      const parsed = parseInteger(raw);
+      if (!parsed.ok) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Quantidade: digite um número inteiro, como 100 ou 1.000.',
+        });
+        return z.NEVER;
+      }
+      return parsed.value;
+    })
     .pipe(
       z
-        .number({ error: 'Quantidade não é um número.' })
-        .int('Quantidade deve ser inteira.')
-        .positive('Quantidade deve ser maior que zero.'),
+        .number()
+        .positive('Quantidade deve ser maior que zero.')
+        .max(MAX_QUANTITY, 'Quantidade acima do limite de 100.000.000. Confira os zeros.'),
     ),
-  preco: decimal('Preço'),
-  taxas: decimal('Taxas'),
+  preco: money('Preço'),
+  taxas: money('Custos'),
   modalidade: z
     .string()
     .trim()
     .toLowerCase()
-    .pipe(z.enum(['comum', 'daytrade'], { error: 'Modalidade deve ser "comum" ou "daytrade".' })),
+    .pipe(z.enum(['comum', 'daytrade'], { error: 'Escolha "comum" ou "daytrade".' })),
 });
 
 export type CsvRow = z.infer<typeof csvRowSchema>;
 
-export function rowToOperation(row: CsvRow, id: string): Operation {
+export function rowToOperation(row: CsvRow, id: string, seq?: number): Operation {
   return {
     id,
+    ...(seq === undefined ? {} : { seq }),
     date: row.data,
     ticker: row.ticker,
     side: row.tipo === 'compra' ? 'BUY' : 'SELL',
@@ -103,53 +134,4 @@ export function rowToOperation(row: CsvRow, id: string): Operation {
     feesCents: toCents(row.taxas),
     category: row.modalidade === 'comum' ? 'SWING' : 'DAY_TRADE',
   };
-}
-
-function detectSeparator(header: string): string {
-  return header.includes(';') ? ';' : ',';
-}
-
-function toRecord(header: readonly string[], cells: readonly string[]): Record<string, string> {
-  return Object.fromEntries(header.map((column, index) => [column, cells[index] ?? '']));
-}
-
-function missingColumns(header: readonly string[]): readonly string[] {
-  return CSV_COLUMNS.filter((column) => !header.includes(column));
-}
-
-type IdFactory = (line: number) => string;
-
-const defaultId: IdFactory = (line) => `csv-${Date.now()}-${line}`;
-
-/**
- * Lê um CSV de operações. Linhas inválidas não interrompem a importação:
- * são devolvidas em `errors` com o número da linha e as mensagens.
- */
-export function parseOperationsCsv(text: string, makeId: IdFactory = defaultId): ImportResult {
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
-  const headerLine = lines[0] ?? '';
-  const separator = detectSeparator(headerLine);
-  const header = headerLine.split(separator).map((cell) => cell.trim().toLowerCase());
-  const missing = missingColumns(header);
-  if (missing.length > 0) {
-    return {
-      operations: [],
-      errors: [{ line: 1, messages: [`Colunas ausentes no cabeçalho: ${missing.join(', ')}.`] }],
-    };
-  }
-
-  return lines.slice(1).reduce<ImportResult>(
-    (result, rawLine, index) => {
-      const lineNumber = index + 2;
-      if (rawLine.trim() === '') return result;
-      const parsed = csvRowSchema.safeParse(toRecord(header, rawLine.split(separator)));
-      if (!parsed.success) {
-        const messages = parsed.error.issues.map((issue) => issue.message);
-        return { ...result, errors: [...result.errors, { line: lineNumber, messages }] };
-      }
-      const operation = rowToOperation(parsed.data, makeId(lineNumber));
-      return { ...result, operations: [...result.operations, operation] };
-    },
-    { operations: [], errors: [] },
-  );
 }

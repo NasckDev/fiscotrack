@@ -31,7 +31,11 @@ export function Modal({
   useEffect(() => {
     const dialog = ref.current;
     if (dialog === null) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      // O navegador foca o primeiro item (Fechar); levamos o foco ao campo certo.
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
@@ -39,7 +43,9 @@ export function Modal({
     <dialog
       ref={ref}
       aria-label={title}
-      onClose={onClose}
+      onClose={() => {
+        if (open) onClose();
+      }}
       onClick={(event) => {
         if (event.target === ref.current) onClose();
       }}

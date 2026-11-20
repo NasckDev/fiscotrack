@@ -29,9 +29,9 @@ export function RulesPage() {
           >
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line-soft p-5">
               <div className="min-w-0">
-                <h3 id={`regra-${ruleSet.id}`} className="text-lg font-semibold">
+                <h2 id={`regra-${ruleSet.id}`} className="text-lg font-semibold">
                   {ruleSet.label}
-                </h3>
+                </h2>
                 <p className="mt-1 text-sm text-muted">
                   Vigência: {formatDate(ruleSet.validFrom)} até{' '}
                   {ruleSet.validTo === null ? 'hoje' : formatDate(ruleSet.validTo)}
@@ -50,9 +50,9 @@ export function RulesPage() {
               </dl>
               <div className="grid gap-6 lg:grid-cols-2">
                 <section aria-labelledby={`premissas-${ruleSet.id}`}>
-                  <h4 id={`premissas-${ruleSet.id}`} className="eyebrow mb-3">
+                  <h3 id={`premissas-${ruleSet.id}`} className="eyebrow mb-3">
                     Premissas
-                  </h4>
+                  </h3>
                   <ul className="space-y-2.5 text-sm">
                     {ruleSet.assumptions.map((assumption) => (
                       <li key={assumption} className="flex gap-2.5">
@@ -63,9 +63,9 @@ export function RulesPage() {
                   </ul>
                 </section>
                 <section aria-labelledby={`fontes-${ruleSet.id}`}>
-                  <h4 id={`fontes-${ruleSet.id}`} className="eyebrow mb-3">
+                  <h3 id={`fontes-${ruleSet.id}`} className="eyebrow mb-3">
                     Fontes
-                  </h4>
+                  </h3>
                   <ul className="space-y-2">
                     {ruleSet.sources.map((source) => (
                       <li key={source.id}>

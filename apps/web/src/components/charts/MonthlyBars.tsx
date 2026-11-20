@@ -66,7 +66,12 @@ export function MonthlyBars({ months }: { readonly months: readonly MonthlyResul
     >
       <div className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={[...data]} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={4}>
+          <BarChart
+            accessibilityLayer={false}
+            data={[...data]}
+            margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
+            barGap={4}
+          >
             <CartesianGrid vertical={false} stroke="var(--ft-chart-grid)" />
             <XAxis
               dataKey="label"

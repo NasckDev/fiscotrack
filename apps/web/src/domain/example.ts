@@ -53,6 +53,7 @@ export function buildExampleOperations(now: Date = new Date()): readonly Operati
   return SCRIPT.map(({ monthsAgo, day, ...rest }, index) => ({
     ...rest,
     id: `exemplo-${String(index + 1).padStart(2, '0')}`,
+    seq: index + 1,
     date: isoFor(now, monthsAgo, day),
   }));
 }

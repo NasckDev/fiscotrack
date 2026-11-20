@@ -1,14 +1,17 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DataGate } from '../components/DataGate';
 import { Icon, type IconName } from '../components/Icon';
 import { useToasts } from '../components/Toasts';
 import { Notice, PageHeader } from '../components/ui';
-import { parseBackup, serializeBackup } from '../domain/backup';
+import { parseBackup, serializeBackup, type BackupData } from '../domain/backup';
+import { toPaidMarks } from '../domain/darf';
 import { plural } from '../domain/format';
 import { downloadText } from '../download';
+import { getLastBackup, markBackupDone } from '../state/backupMemory';
 import { useOperations } from '../state/OperationsContext';
 import { useExampleLoader } from '../state/useExampleLoader';
+import { useRunner } from '../state/useRunner';
 import { setTheme, useTheme, type Theme } from '../theme';
 
 function Section({
@@ -29,7 +32,7 @@ function Section({
           <Icon name={icon} size={18} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-bold">{title}</h3>
+          <h2 className="font-bold">{title}</h2>
           <p className="mt-0.5 text-sm text-muted">{description}</p>
           <div className="mt-4">{children}</div>
         </div>
@@ -71,18 +74,26 @@ function ThemeSection() {
 }
 
 function BackupSection() {
-  const { operations, paidMonths, restore } = useOperations();
+  const { operations, paid, restore } = useOperations();
   const toasts = useToasts();
+  const run = useRunner();
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<BackupData | null>(null);
+  const [lastBackup, setLastBackup] = useState(getLastBackup);
 
   const exportBackup = () => {
-    const text = serializeBackup({ operations, paidDarfs: [...paidMonths] });
-    downloadText('backup-fiscotrack.json', text, 'application/json');
+    downloadText(
+      'backup-fiscotrack.json',
+      serializeBackup({ operations, paidDarfs: toPaidMarks(paid) }),
+      'application/json',
+    );
+    markBackupDone();
+    setLastBackup(getLastBackup());
     toasts.show('Backup baixado.');
   };
 
-  const importBackup = async (event: ChangeEvent<HTMLInputElement>) => {
+  const chooseFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -92,9 +103,31 @@ function BackupSection() {
       return;
     }
     setError(null);
-    await restore(result.data.operations, result.data.paidDarfs);
+    setPending(result.data);
+  };
+
+  const confirmRestore = async () => {
+    if (pending === null) return;
+    const incoming = pending;
+    const snapshot = { operations, paid: toPaidMarks(paid) };
+    setPending(null);
+    const ok = await run(
+      () => restore(incoming.operations, incoming.paidDarfs),
+      'Não foi possível restaurar o backup.',
+    );
+    if (!ok) return;
     toasts.show(
-      `Backup restaurado: ${plural(result.data.operations.length, 'operação', 'operações')}.`,
+      `Backup restaurado: ${plural(incoming.operations.length, 'operação', 'operações')}.`,
+      {
+        action: {
+          label: 'Desfazer',
+          run: () =>
+            void run(
+              () => restore(snapshot.operations, snapshot.paid),
+              'Não foi possível desfazer.',
+            ),
+        },
+      },
     );
   };
 
@@ -124,9 +157,14 @@ function BackupSection() {
           className="sr-only"
           tabIndex={-1}
           aria-label="Arquivo de backup"
-          onChange={(event) => void importBackup(event)}
+          onChange={(event) => void chooseFile(event)}
         />
       </div>
+      <p className="mt-3 text-xs text-muted">
+        {lastBackup === null
+          ? 'Você ainda não exportou um backup neste navegador.'
+          : `Último backup: ${lastBackup.toLocaleDateString('pt-BR')}.`}
+      </p>
       {error !== null && (
         <div className="mt-3">
           <Notice tone="danger" role="alert" title="Não foi possível restaurar">
@@ -134,15 +172,66 @@ function BackupSection() {
           </Notice>
         </div>
       )}
+      <ConfirmDialog
+        open={pending !== null}
+        title="Restaurar este backup?"
+        message={`Isto substitui ${plural(operations.length, 'operação', 'operações')} deste navegador por ${plural(pending?.operations.length ?? 0, 'operação', 'operações')} do arquivo. Você poderá desfazer logo em seguida.`}
+        confirmLabel="Substituir dados"
+        onCancel={() => setPending(null)}
+        onConfirm={() => void confirmRestore()}
+      />
     </Section>
   );
 }
 
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} MB`;
+}
+
+function StorageUsage() {
+  const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void navigator.storage
+      ?.estimate?.()
+      .then((estimate) => {
+        if (!cancelled && estimate.usage !== undefined && estimate.quota !== undefined) {
+          setUsage({ used: estimate.usage, quota: estimate.quota });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (usage === null) return null;
+  return (
+    <p className="mt-3 text-xs text-muted">
+      Espaço usado pelo app neste navegador: {formatMegabytes(usage.used)} de{' '}
+      {formatMegabytes(usage.quota)} disponíveis.
+    </p>
+  );
+}
+
 function DataSection() {
-  const { operations, clear } = useOperations();
+  const { operations, clear, merge, paid } = useOperations();
   const { load, isWorking } = useExampleLoader();
   const toasts = useToasts();
+  const run = useRunner();
   const [isConfirming, setIsConfirming] = useState(false);
+
+  const handleClear = async () => {
+    const snapshot = { operations, paid: toPaidMarks(paid) };
+    setIsConfirming(false);
+    if (!(await run(clear, 'Não foi possível apagar os dados.'))) return;
+    toasts.show('Dados apagados deste navegador.', {
+      action: {
+        label: 'Desfazer',
+        run: () =>
+          void run(() => merge(snapshot.operations, snapshot.paid), 'Não foi possível desfazer.'),
+      },
+    });
+  };
 
   return (
     <Section
@@ -156,8 +245,13 @@ function DataSection() {
           className="btn btn-secondary"
           disabled={isWorking}
           onClick={() =>
-            void load().then(
-              (ok) => ok && toasts.show('Exemplo carregado. Todos os dados são fictícios.'),
+            void load().then((ok) =>
+              toasts.show(
+                ok
+                  ? 'Exemplo carregado. Todos os dados são fictícios.'
+                  : 'Não foi possível carregar o exemplo. Tente de novo.',
+                ok ? {} : { tone: 'danger' },
+              ),
             )
           }
         >
@@ -174,16 +268,14 @@ function DataSection() {
           Apagar todos os dados
         </button>
       </div>
+      <StorageUsage />
       <ConfirmDialog
         open={isConfirming}
         title="Apagar todos os dados?"
-        message="Operações e DARFs marcados como pagos serão removidos deste navegador. Exporte um backup antes se quiser guardá-los."
+        message="Operações e DARFs marcados como pagos serão removidos deste navegador. Você pode desfazer logo em seguida; para guardá-los de verdade, exporte um backup antes."
         confirmLabel="Apagar tudo"
         onCancel={() => setIsConfirming(false)}
-        onConfirm={() => {
-          setIsConfirming(false);
-          void clear().then(() => toasts.show('Dados apagados deste navegador.'));
-        }}
+        onConfirm={() => void handleClear()}
       />
     </Section>
   );

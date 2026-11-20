@@ -62,7 +62,11 @@ export function LineSeries({
     >
       <div className="h-60 sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={[...points]} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <AreaChart
+            accessibilityLayer={false}
+            data={[...points]}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--ft-chart-line)" stopOpacity={0.28} />

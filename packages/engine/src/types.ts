@@ -11,6 +11,11 @@ export type TradeCategory = 'SWING' | 'DAY_TRADE';
 
 export interface Operation {
   readonly id: string;
+  /**
+   * Sequência de criação (opcional). Desempata operações do mesmo dia: a de menor `seq` vem antes.
+   * Sem `seq`, vale a ordem de entrada.
+   */
+  readonly seq?: number;
   /** Data no formato ISO `AAAA-MM-DD`. */
   readonly date: string;
   readonly ticker: string;

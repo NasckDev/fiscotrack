@@ -17,7 +17,7 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
   if (holding === undefined) {
     return (
       <div className="card mx-auto max-w-xl p-8 text-center">
-        <h2 className="text-xl font-extrabold">Ativo não encontrado</h2>
+        <h1 className="text-xl font-extrabold">Ativo não encontrado</h1>
         <p className="mt-1 text-muted">
           Não há operações de {ticker.toUpperCase()} neste navegador.
         </p>
@@ -46,7 +46,13 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
           holding.quantity > 0 ? `${holding.quantity} ações em carteira` : 'Posição encerrada'
         }
         actions={
-          holding.quantity === 0 ? <StatusBadge tone="neutral">Encerrada</StatusBadge> : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            {holding.quantity === 0 && <StatusBadge tone="neutral">Encerrada</StatusBadge>}
+            <Link to={`/operacoes?nova=1&ticker=${holding.ticker}`} className="btn btn-primary">
+              <Icon name="plus" size={16} />
+              Nova operação de {holding.ticker}
+            </Link>
+          </div>
         }
       />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -70,11 +76,30 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
           </Kpi>
         </Reveal>
         <Reveal index={3}>
-          <Kpi label="Resultado realizado" icon="trend-up">
-            <Money cents={holding.realizedCents} signed />
+          <Kpi
+            label="Resultado realizado"
+            icon="trend-up"
+            hint={holding.realizedDayTradeCents !== 0 ? 'Inclui day trade' : undefined}
+          >
+            <Money cents={holding.realizedCents + holding.realizedDayTradeCents} signed />
           </Kpi>
         </Reveal>
       </div>
+      {points.length <= 1 && (
+        <Reveal index={4}>
+          <section aria-label="Evolução do preço médio" className="card p-5 text-center">
+            <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-accent-surface text-accent">
+              <Icon name="chart" size={24} />
+            </span>
+            <p className="mt-3 font-bold">
+              A evolução do preço médio aparece a partir da 2ª operação
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Registre outra compra ou venda de {holding.ticker} para acompanhar o preço médio.
+            </p>
+          </section>
+        </Reveal>
+      )}
       {points.length > 1 && (
         <Reveal index={4}>
           <LineSeries
@@ -99,9 +124,9 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
       )}
       <Reveal index={5}>
         <section aria-labelledby="historico" className="card p-4 sm:p-5">
-          <h3 id="historico" className="mb-3 text-base font-bold">
+          <h2 id="historico" className="mb-3 text-base font-bold">
             Histórico de operações
-          </h3>
+          </h2>
           <ul className="divide-y divide-line-soft">
             {[...holding.operations].reverse().map((operation) => (
               <li key={operation.id} className="flex items-center justify-between gap-3 py-3">

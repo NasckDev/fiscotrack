@@ -29,9 +29,9 @@ export function ChartCard({
   const captionId = useId();
 
   return (
-    <figure className={`card p-4 sm:p-5 ${className}`}>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1.5">
+    <figure className={`card h-full p-4 sm:p-5 ${className}`}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1.5">
           <figcaption id={captionId} className="text-base font-bold">
             {title}
           </figcaption>
@@ -39,7 +39,7 @@ export function ChartCard({
         </div>
         <button
           type="button"
-          className="btn btn-secondary"
+          className="btn btn-secondary shrink-0"
           aria-pressed={showTable}
           onClick={() => setShowTable((value) => !value)}
         >

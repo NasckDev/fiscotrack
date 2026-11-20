@@ -60,7 +60,7 @@ function StepItem({ step, index }: { readonly step: ExplanationStep; readonly in
                   target="_blank"
                   rel="noopener noreferrer"
                   title={source.title}
-                  className="link inline-flex items-center gap-1"
+                  className="link inline-flex min-h-11 items-center gap-1 py-2"
                 >
                   Fonte: {shortSourceTitle(source.title)}
                   <Icon name="external" size={12} />
@@ -141,7 +141,26 @@ function CategoryColumn({ label, result }: { label: string; result: CategoryResu
   );
 }
 
+function isEmptyMonth(month: MonthlyResult): boolean {
+  return (
+    month.swing.salesTotalCents === 0 &&
+    month.dayTrade.salesTotalCents === 0 &&
+    monthResultCents(month) === 0 &&
+    month.darfDueCents === 0 &&
+    month.swing.lossAfterCents === 0 &&
+    month.dayTrade.lossAfterCents === 0
+  );
+}
+
 export function MonthCard({ month }: { readonly month: MonthlyResult }) {
+  if (isEmptyMonth(month)) {
+    return (
+      <article className="card flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+        <h2 className="font-bold">{formatMonthTitle(month.month)}</h2>
+        <span className="text-sm text-muted">Sem vendas, sem imposto</span>
+      </article>
+    );
+  }
   const status = monthStatus(month);
   const headingId = `mes-${month.month}`;
   const limitCents =
@@ -152,9 +171,9 @@ export function MonthCard({ month }: { readonly month: MonthlyResult }) {
     <article className="card overflow-hidden" aria-labelledby={headingId}>
       <div className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 id={headingId} className="text-lg font-extrabold">
+          <h2 id={headingId} className="text-lg font-extrabold">
             {formatMonthTitle(month.month)}
-          </h3>
+          </h2>
           <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
         </div>
         <dl className="grid grid-cols-2 gap-4">
@@ -180,7 +199,7 @@ export function MonthCard({ month }: { readonly month: MonthlyResult }) {
         </div>
       </div>
       <details className="border-t border-line-soft">
-        <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-bold text-accent hover:bg-card-subtle sm:px-5">
+        <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-2 bg-accent-surface px-4 py-3 text-sm font-extrabold text-accent hover:brightness-95 sm:px-5">
           Por que deu esse valor?
           <Icon name="chevron-down" size={18} className="chevron" />
         </summary>

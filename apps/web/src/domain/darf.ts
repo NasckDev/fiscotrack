@@ -39,26 +39,40 @@ export function daysBetween(from: string, to: string): number {
 
 export type DarfStatus = 'paid' | 'overdue' | 'due-soon' | 'pending';
 
+/** Marca de pagamento feita pelo usuário. `amountCents` null vem de dados antigos (sem valor). */
+export interface PaidMark {
+  readonly month: string;
+  readonly amountCents: number | null;
+}
+
 export interface DarfEntry {
   readonly month: string;
   readonly dueDate: string;
   readonly amountCents: number;
   readonly paid: boolean;
+  /** Marcado como pago, mas o valor apurado mudou desde então: volta a pendente. */
+  readonly amountChanged: boolean;
 }
 
 /** Um DARF por mês com imposto a recolher, do mais antigo para o mais recente. */
 export function buildDarfs(
   months: readonly MonthlyResult[],
-  paidMonths: ReadonlySet<string>,
+  paid: ReadonlyMap<string, number | null>,
 ): readonly DarfEntry[] {
   return months
     .filter((month) => month.darfDueCents > 0)
-    .map((month) => ({
-      month: month.month,
-      dueDate: darfDueDate(month.month),
-      amountCents: month.darfDueCents,
-      paid: paidMonths.has(month.month),
-    }));
+    .map((month) => {
+      const mark = paid.has(month.month) ? paid.get(month.month) : undefined;
+      const marked = mark !== undefined;
+      const sameAmount = mark === null || mark === month.darfDueCents;
+      return {
+        month: month.month,
+        dueDate: darfDueDate(month.month),
+        amountCents: month.darfDueCents,
+        paid: marked && sameAmount,
+        amountChanged: marked && !sameAmount,
+      };
+    });
 }
 
 export function darfStatus(entry: DarfEntry, today: string): DarfStatus {
@@ -71,4 +85,18 @@ export function darfStatus(entry: DarfEntry, today: string): DarfStatus {
 /** O DARF em aberto mais antigo (vencidos aparecem antes dos que ainda vão vencer). */
 export function nextDarf(darfs: readonly DarfEntry[]): DarfEntry | null {
   return darfs.find((entry) => !entry.paid) ?? null;
+}
+
+/** Texto de prazo: "Vence em 3 dias", "Vence hoje" ou "Venceu há 2 dias" (compara com hoje). */
+export function dueCountdown(dueDate: string, today: string): { text: string; urgent: boolean } {
+  const days = daysBetween(today, dueDate);
+  const plural = (count: number) => (count === 1 ? '1 dia' : count + ' dias');
+  if (days < 0) return { text: 'Venceu há ' + plural(-days), urgent: true };
+  if (days === 0) return { text: 'Vence hoje', urgent: true };
+  return { text: 'Vence em ' + plural(days), urgent: days <= DUE_SOON_DAYS };
+}
+
+/** Mapa de pagamentos → lista de marcas (para backup e desfazer). */
+export function toPaidMarks(paid: ReadonlyMap<string, number | null>): readonly PaidMark[] {
+  return [...paid].map(([month, amountCents]) => ({ month, amountCents }));
 }

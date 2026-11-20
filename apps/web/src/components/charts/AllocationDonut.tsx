@@ -58,7 +58,7 @@ export function AllocationDonut({ holdings }: { readonly holdings: readonly Hold
       <div className="flex flex-col items-center gap-4 sm:flex-row lg:flex-col xl:flex-row">
         <div className="h-44 w-44 flex-none">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart accessibilityLayer={false}>
               <Tooltip
                 content={
                   <ChartTooltip<Slice>

@@ -31,7 +31,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h2>
+        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h1>
         {description !== undefined && <p className="mt-1 text-sm text-muted">{description}</p>}
       </div>
       {actions}
@@ -86,7 +86,7 @@ interface KpiProps {
 /** Indicador: rótulo com ícone, valor grande em fonte tabular e dica. */
 export function Kpi({ label, icon, hint, children }: KpiProps) {
   return (
-    <div className="card flex flex-col p-4 sm:p-5">
+    <div className="card flex h-full flex-col p-4 sm:p-5">
       <p className="flex items-center gap-2 text-xs font-semibold text-muted sm:text-sm">
         <span className="flex size-7 flex-none items-center justify-center rounded-lg bg-accent-surface text-accent">
           <Icon name={icon} size={16} />

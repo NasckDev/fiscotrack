@@ -29,7 +29,7 @@ function ErrorView({ message, onRetry }: { message: string | null; onRetry: () =
         <span className="flex size-12 items-center justify-center rounded-full bg-danger-surface text-danger">
           <Icon name="alert" size={24} />
         </span>
-        <h2 className="mt-4 text-lg font-bold">Não foi possível ler os dados locais</h2>
+        <h1 className="mt-4 text-lg font-bold">Não foi possível ler os dados locais</h1>
         <p className="mt-1 text-sm text-muted">{message}</p>
         <p className="mt-1 text-sm text-muted">
           Verifique se o navegador permite armazenamento neste site e tente de novo.
