@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { darfStatus, todayIso } from '../domain/darf';
 import { formatMonth, plural } from '../domain/format';
 import { useFinance } from '../state/useFinance';
-import { AppBadge, AppButton, AppFlex, AppIconButton, AppPopover, AppText } from '../ui';
+import { AppBadge, AppButton, AppFlex, AppIconButton, AppPopover } from '../ui';
 
 interface Notice {
   readonly id: string;
@@ -50,12 +50,12 @@ export function Notifications() {
   const content = (
     <div style={{ width: 'min(320px, 80vw)' }}>
       {notices.length === 0 ? (
-        <AppText type="secondary">Nenhum aviso. Seus DARFs e operações estão em dia.</AppText>
+        <span>Nenhum aviso. Seus DARFs e operações estão em dia.</span>
       ) : (
         <AppFlex vertical gap="small" component="ul">
           {notices.map((notice) => (
             <li key={notice.id} style={{ listStyle: 'none' }}>
-              <AppText block>{notice.text}</AppText>
+              <span style={{ display: 'block' }}>{notice.text}</span>
               <AppButton
                 variant="link"
                 size="sm"

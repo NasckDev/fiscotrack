@@ -1,4 +1,4 @@
-import { Card, theme } from 'antd';
+import { Skeleton, theme } from 'antd';
 import type { CSSProperties, ReactNode } from 'react';
 import { useAppColors } from './theme/AppThemeProvider';
 
@@ -18,11 +18,19 @@ interface AppCardProps {
   readonly role?: string;
 }
 
+/**
+ * Cartão do tema. Não usa o `Card` do Ant Design: ele puxa o componente de abas inteiro para o
+ * pacote inicial, e aqui só precisamos de moldura, título e ações.
+ */
 export function AppCard({
   tone = 'default',
   fullHeight = false,
   padding = 'md',
-  ...props
+  title,
+  extra,
+  loading = false,
+  children,
+  ...aria
 }: AppCardProps) {
   const colors = useAppColors();
   const { token } = theme.useToken();
@@ -31,18 +39,49 @@ export function AppCard({
       ? {
           background: `linear-gradient(135deg, ${colors.heroFrom}, ${colors.heroTo})`,
           color: colors.heroText,
-          borderColor: 'transparent',
+          border: '1px solid transparent',
         }
-      : tone === 'subtle'
-        ? { background: colors.bgSubtle }
-        : {};
-  const paddingValue = { none: 0, md: token.padding, lg: token.paddingLG }[padding];
+      : {
+          background: tone === 'subtle' ? colors.bgSubtle : colors.bgContainer,
+          color: colors.text,
+          border: `1px solid ${colors.borderSoft}`,
+        };
+  const bodyPadding = { none: 0, md: token.padding, lg: token.paddingLG }[padding];
+  const hasHeader = title !== undefined || extra !== undefined;
+
   return (
-    <Card
-      {...props}
-      variant={tone === 'hero' ? 'borderless' : 'outlined'}
-      style={{ ...toneStyle, ...(fullHeight ? { height: '100%', width: '100%' } : {}) }}
-      styles={{ body: { padding: paddingValue }, header: { minHeight: 0 } }}
-    />
+    <div
+      {...aria}
+      style={{
+        ...toneStyle,
+        borderRadius: token.borderRadiusLG,
+        boxShadow: tone === 'hero' ? 'none' : token.boxShadowTertiary,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        ...(fullHeight ? { height: '100%' } : {}),
+      }}
+    >
+      {hasHeader && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: `${token.paddingSM}px ${bodyPadding || token.padding}px`,
+            borderBottom: `1px solid ${colors.borderSoft}`,
+            fontSize: 16,
+            fontWeight: 700,
+          }}
+        >
+          <div>{title}</div>
+          <div>{extra}</div>
+        </div>
+      )}
+      <div style={{ padding: bodyPadding, flex: 1, minWidth: 0 }}>
+        {loading ? <Skeleton active paragraph={{ rows: 2 }} /> : children}
+      </div>
+    </div>
   );
 }

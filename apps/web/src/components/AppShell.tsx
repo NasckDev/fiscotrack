@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { NAV_ITEMS, TAB_ITEMS } from '../navigation';
 import { DB_ISSUE_EVENT } from '../storage/operationsRepository';
@@ -6,8 +6,6 @@ import {
   AppAvatar,
   AppButton,
   AppContainer,
-  AppDivider,
-  AppDrawer,
   AppDropdown,
   AppIconButton,
   AppLayout,
@@ -17,7 +15,6 @@ import {
   AppMenu,
   AppStack,
   AppTabBar,
-  AppText,
   setTheme,
   useAppColors,
   useBreakpoints,
@@ -25,12 +22,13 @@ import {
   useToasts,
   type AppMenuItem,
 } from '../ui';
-import { CommandPalette } from './CommandPalette';
 import { Disclaimer } from './Disclaimer';
 import { ExampleBanner, FirstVisitLoader } from './ExampleBanner';
 import { Logo, LogoMark } from './Logo';
 import { Notifications } from './Notifications';
-import { ShortcutsModal } from './ShortcutsModal';
+import { activeKey, useNavMenuItems } from './navMenu';
+
+const ShellOverlays = lazy(() => import('./ShellOverlays'));
 
 const REPOSITORY_URL = 'https://github.com/NasckDev/fiscotrack';
 const GO_SEQUENCE_MS = 1200;
@@ -45,25 +43,6 @@ function isTyping(target: EventTarget | null): boolean {
 interface ShellActions {
   readonly openPalette: () => void;
   readonly openShortcuts: () => void;
-}
-
-/** Item de menu ativo: `/carteira/PETR4` destaca "Carteira". */
-function activeKey(pathname: string): string {
-  const match = NAV_ITEMS.filter((item) => item.to !== '/' && pathname.startsWith(item.to));
-  return match[0]?.to ?? (pathname === '/' ? '/' : '');
-}
-
-function useNavMenuItems(afterSelect?: () => void): readonly AppMenuItem[] {
-  const navigate = useNavigate();
-  return NAV_ITEMS.map((item) => ({
-    key: item.to,
-    label: item.label,
-    icon: item.icon,
-    onSelect: () => {
-      void navigate(item.to);
-      afterSelect?.();
-    },
-  }));
 }
 
 function SiderContent({ collapsed }: { readonly collapsed: boolean }) {
@@ -226,37 +205,6 @@ function useGlobalShortcuts({ openPalette, openShortcuts }: ShellActions) {
   }, [navigate, openPalette, openShortcuts]);
 }
 
-function MobileNavDrawer({
-  open,
-  onClose,
-}: {
-  readonly open: boolean;
-  readonly onClose: () => void;
-}) {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const items: readonly AppMenuItem[] = [
-    ...useNavMenuItems(onClose),
-    {
-      key: '/importar',
-      label: 'Importar CSV',
-      icon: 'upload',
-      dividerBefore: true,
-      onSelect: () => {
-        void navigate('/importar');
-        onClose();
-      },
-    },
-  ];
-  return (
-    <AppDrawer open={open} title="Menu" onClose={onClose} placement="left" size="sm">
-      <nav aria-label="Menu completo">
-        <AppMenu items={items} selectedKey={activeKey(pathname)} />
-      </nav>
-    </AppDrawer>
-  );
-}
-
 export function AppShell({ children }: { readonly children: ReactNode }) {
   const screens = useBreakpoints();
   const isDesktop = Boolean(screens.lg);
@@ -268,6 +216,10 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [hasOpenedOverlay, setHasOpenedOverlay] = useState(false);
+  if ((isPaletteOpen || isShortcutsOpen || isMenuOpen) && !hasOpenedOverlay) {
+    setHasOpenedOverlay(true);
+  }
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -364,10 +316,10 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
             {children}
           </AppContainer>
           <footer style={{ textAlign: 'center', padding: '0 16px 24px' }}>
-            <AppDivider />
-            <AppText type="secondary" size="sm">
+            <div style={{ borderTop: `1px solid ${colors.borderSoft}`, margin: '0 0 16px' }} />
+            <span style={{ fontSize: 13, color: colors.textMuted }}>
               Projeto open source educacional · MIT ·{' '}
-            </AppText>
+            </span>
             <a
               href={REPOSITORY_URL}
               target="_blank"
@@ -389,13 +341,19 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
           }))}
         />
       )}
-      <MobileNavDrawer open={isMenuOpen && !isDesktop} onClose={() => setIsMenuOpen(false)} />
-      <CommandPalette
-        open={isPaletteOpen}
-        onClose={() => setIsPaletteOpen(false)}
-        onShowShortcuts={openShortcuts}
-      />
-      <ShortcutsModal open={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
+      {hasOpenedOverlay && (
+        <Suspense fallback={null}>
+          <ShellOverlays
+            isMenuOpen={isMenuOpen && !isDesktop}
+            isPaletteOpen={isPaletteOpen}
+            isShortcutsOpen={isShortcutsOpen}
+            onCloseMenu={() => setIsMenuOpen(false)}
+            onClosePalette={() => setIsPaletteOpen(false)}
+            onCloseShortcuts={() => setIsShortcutsOpen(false)}
+            onShowShortcuts={openShortcuts}
+          />
+        </Suspense>
+      )}
     </AppLayout>
   );
 }

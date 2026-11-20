@@ -1,15 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AppButton } from './AppButton';
 import { AppFlex } from './AppLayout';
-import {
-  AppAvatar,
-  AppBadge,
-  AppDescriptions,
-  AppPopover,
-  AppResult,
-  AppSegmented,
-  AppTooltip,
-} from './AppMisc';
+import { AppDescriptions, AppResult, AppSegmented } from './AppExtras';
+import { AppAvatar, AppBadge, AppPopover, AppTooltip } from './AppMisc';
 import { useState } from 'react';
 
 const meta = {

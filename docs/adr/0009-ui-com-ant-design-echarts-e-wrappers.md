@@ -31,7 +31,9 @@ tema central com os tokens da marca e Storybook.
 
 - O visual passa a ser o do Ant Design com a identidade do FiscoTrack aplicada pelos tokens; trocar
   a paleta é editar um arquivo.
-- O bundle ficou maior no JavaScript (o Ant Design é pesado) e menor no CSS; os números reais estão
-  no README. Os gráficos continuam carregando sob demanda.
+- O bundle ficou maior no JavaScript (o Ant Design é pesado) e menor no CSS. `"sideEffects"` no
+  `package.json`, componentes de sobreposição em `React.lazy` e `AppCard` próprio levaram o JS
+  inicial de 455 para menos de 250 kB gzip; o histórico e a medição com o visualizer estão no README.
+  Os gráficos carregam sob demanda e ficam fora do índice de `ui` (`ui/charts.ts`).
 - Os testes de componente rodam com `motion: false` e `NODE_ENV=development` no `setup.ts`, porque
   o Ant Design usa um id fixo para diálogos quando `NODE_ENV=test`.

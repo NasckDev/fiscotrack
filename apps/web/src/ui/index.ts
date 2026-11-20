@@ -34,17 +34,13 @@ export { AppList } from './AppList';
 export {
   AppAvatar,
   AppBadge,
-  AppBreadcrumb,
-  AppDescriptions,
   AppDropdown,
   AppMenu,
   AppPopover,
-  AppResult,
-  AppSegmented,
-  AppTabs,
   AppTooltip,
   type AppMenuItem,
 } from './AppMisc';
+export { AppBreadcrumb, AppDescriptions, AppResult, AppSegmented, AppTabs } from './AppExtras';
 export { AppModal } from './AppModal';
 export { AppMoney } from './AppMoney';
 export { AppPagination } from './AppPagination';

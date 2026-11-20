@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { toPaidMarks } from '../domain/darf';
 import { describeStorageError } from '../domain/errors';
 import { useOperations } from '../state/OperationsContext';
 import { hasVisited, markVisited } from '../state/firstVisit';
 import { EXAMPLE_ID_PREFIX, useExampleLoader } from '../state/useExampleLoader';
-import { AppAlert, AppButton, AppConfirm, useToasts } from '../ui';
+import { AppAlert, AppButton, useToasts } from '../ui';
+
+// O diálogo de confirmação só carrega quando o usuário clica em "Começar com meus dados".
+const AppConfirm = lazy(() =>
+  import('../ui/AppConfirm').then((module) => ({ default: module.AppConfirm })),
+);
 
 /**
  * Na primeira visita com o banco vazio, carrega o exemplo sozinho (uma vez). Quem apagou os dados
@@ -13,7 +18,6 @@ import { AppAlert, AppButton, AppConfirm, useToasts } from '../ui';
 export function FirstVisitLoader() {
   const { status, operations } = useOperations();
   const { load } = useExampleLoader();
-  const toasts = useToasts();
   const started = useRef(false);
 
   useEffect(() => {
@@ -22,10 +26,9 @@ export function FirstVisitLoader() {
     if (hasVisited()) return;
     markVisited();
     if (operations.length > 0) return;
-    void load().then((ok) => {
-      if (ok) toasts.show('Exemplo carregado para você explorar. Todos os dados são fictícios.');
-    });
-  }, [status, operations.length, load, toasts]);
+    // Sem aviso passageiro: o selo "Dados de exemplo" já diz o que está na tela.
+    void load();
+  }, [status, operations.length, load]);
 
   return null;
 }
@@ -64,14 +67,18 @@ export function ExampleBanner() {
           </AppButton>
         </AppAlert>
       </section>
-      <AppConfirm
-        open={isConfirming}
-        title="Começar com seus dados?"
-        message="As operações de exemplo serão removidas deste navegador. Você poderá desfazer logo em seguida."
-        confirmLabel="Remover exemplo"
-        onConfirm={() => void startFresh()}
-        onCancel={() => setIsConfirming(false)}
-      />
+      {isConfirming && (
+        <Suspense fallback={null}>
+          <AppConfirm
+            open={isConfirming}
+            title="Começar com seus dados?"
+            message="As operações de exemplo serão removidas deste navegador. Você poderá desfazer logo em seguida."
+            confirmLabel="Remover exemplo"
+            onConfirm={() => void startFresh()}
+            onCancel={() => setIsConfirming(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

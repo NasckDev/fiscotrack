@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AppButton } from './AppButton';
-import { AppBreadcrumb, AppDropdown, AppMenu, AppTabs, type AppMenuItem } from './AppMisc';
+import { AppBreadcrumb, AppTabs } from './AppExtras';
+import { AppDropdown, AppMenu, type AppMenuItem } from './AppMisc';
 
 const items: readonly AppMenuItem[] = [
   { key: 'home', label: 'Início', icon: 'home' },

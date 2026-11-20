@@ -215,20 +215,32 @@ mapeamento antes de importar.
 
 ### Bundle: antes e depois
 
-Medido no build portátil (`apps/web/dist-portable`), JavaScript carregado na primeira tela:
+Medido no build portátil (`apps/web/dist-portable`), só o JavaScript e o CSS que a primeira tela
+carrega (os chunks listados no `index.html`):
 
-| Medida                            | Antes (Tailwind + Recharts + lucide + motion) | Depois (Ant Design + ECharts)            |
-| --------------------------------- | --------------------------------------------- | ---------------------------------------- |
-| JS inicial                        | 430 kB (140 kB gzip)                          | **1.442 kB (455 kB gzip)**               |
-| CSS inicial                       | 49 kB (14 kB gzip)                            | **10 kB (6 kB gzip)**                    |
-| Gráficos (carregam só com a tela) | Recharts, ~412 kB                             | ECharts enxuto, **592 kB (202 kB gzip)** |
+| Medida                                        | Versão com Tailwind + Recharts | Ant Design, primeira versão   | **Ant Design, otimizado** |
+| --------------------------------------------- | ------------------------------ | ----------------------------- | ------------------------- |
+| JS inicial                                    | 430 kB (140 kB gzip)           | 1.442 kB (455 kB gzip)        | **728 kB (240 kB gzip)**  |
+| CSS inicial                                   | 49 kB (14 kB gzip)             | 10 kB (6 kB gzip)             | **10 kB (6 kB gzip)**     |
+| Gráficos (só com a tela de início e do ativo) | Recharts, ~412 kB              | ECharts, 592 kB (202 kB gzip) | 592 kB (200 kB gzip)      |
 
-O Ant Design é pesado: o JavaScript inicial triplicou, o CSS caiu porque o estilo agora vem do
-CSS-in-JS dos componentes. O que foi feito para conter o custo: imports nomeados por componente,
-rotas e gráficos carregados sob demanda (o ECharts fica fora do índice de `ui` para não entrar na
-primeira tela), `echarts/core` com só barras, linha e rosca, renderizador SVG e remoção de
-Tailwind, Recharts, lucide-react e motion. Não há como remover o custo do Ant Design sem abandonar o
-padrão de UI.
+O que estava errado na primeira versão: o pacote `apps/web` não declarava `"sideEffects"`, então o
+bundler tratava todo arquivo de `src/ui` como tendo efeito colateral e levava o barrel inteiro
+(Table, DatePicker, Form, Upload, Steps, Collapse, Tabs...) para a entrada. O Ant Design em si é
+tree-shakeable. O que foi feito, nesta ordem, e o efeito no JS inicial gzip:
+
+1. `"sideEffects": ["**/*.css"]` em `apps/web/package.json`: 455 → 306 kB.
+2. Menu do celular, paleta de comandos, atalhos e confirmação do banner viram `React.lazy`
+   (carregam só quando alguém abre): −23 kB.
+3. `AppCard` sem o `Card` do Ant Design (que importa o componente de abas inteiro), `message.useMessage`
+   no lugar do `<App>` (que traz Modal e Notification), fallback de erro e de rota sem `Result` e
+   `Skeleton`, e `AppMisc` dividido em dois arquivos: 283 → 239 kB.
+
+Como medir de novo: `ANALYZE=1 npx vite build --base ./ --outDir dist-analyze` (usa
+`rollup-plugin-visualizer`, MIT, só em desenvolvimento) gera `stats.json` com o peso gzip de cada módulo.
+O que sobra na entrada, em ordem: react-dom (a maior parte, inevitável), os componentes usados pela casca
+(Layout, Menu, Button, Badge, Avatar, Tooltip, Popover, Dropdown, Alert), react-router e os ícones.
+Gráficos (ECharts, `echarts/core` enxuto com renderizador SVG) e cada tela carregam sob demanda.
 
 Casos do motor: zero operações, somente compras, custos de compra e venda, isenção (abaixo, exatamente
 no limite e um centavo acima), prejuízo acumulado e compensação, day trade separado de operações
@@ -252,6 +264,7 @@ Versões exatas no `package.json`; `npm audit` sem vulnerabilidade alta ou crít
 | idb 8.0.4                                           | IndexedDB                                | ISC (permissiva)       |
 | @fontsource-variable/manrope, jetbrains-mono 5.3.0  | Fontes auto-hospedadas                   | OFL-1.1 (fontes)       |
 | storybook, @storybook/react-vite, addon-a11y 10.6.8 | Storybook (desenvolvimento)              | MIT                    |
+| rollup-plugin-visualizer 7.1.3                      | Análise do bundle (desenvolvimento)      | MIT                    |
 | @playwright/test 1.65.1                             | E2E (desenvolvimento)                    | Apache-2.0             |
 | @axe-core/playwright 4.14.0                         | Acessibilidade nos E2E (desenvolvimento) | MPL-2.0 (só em testes) |
 

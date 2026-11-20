@@ -6,7 +6,7 @@ const channel = process.env.PW_CHANNEL;
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,

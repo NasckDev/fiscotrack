@@ -1,4 +1,4 @@
-import { App } from 'antd';
+import { message as antdMessage } from 'antd';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { AppButton } from './AppButton';
 
@@ -20,7 +20,7 @@ const TOAST_KEY = 'fiscotrack-toast';
 
 /** Avisos curtos (`message` do Ant Design). Só um por vez: o novo substitui o anterior. */
 export function ToastProvider({ children }: { readonly children: ReactNode }) {
-  const { message } = App.useApp();
+  const [message, holder] = antdMessage.useMessage();
   const api = useMemo<ToastApi>(
     () => ({
       show(text, options = {}) {
@@ -52,7 +52,12 @@ export function ToastProvider({ children }: { readonly children: ReactNode }) {
     }),
     [message],
   );
-  return <ToastContext.Provider value={api}>{children}</ToastContext.Provider>;
+  return (
+    <ToastContext.Provider value={api}>
+      {holder}
+      {children}
+    </ToastContext.Provider>
+  );
 }
 
 export function useToasts(): ToastApi {

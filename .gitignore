@@ -10,3 +10,5 @@ test-results
 .env.*
 dist-portable
 storybook-static
+stats.json
+dist-analyze

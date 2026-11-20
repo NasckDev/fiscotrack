@@ -4,7 +4,7 @@ import { toPaidMarks } from '../domain/darf';
 import { downloadText } from '../download';
 import { markBackupDone } from '../state/backupMemory';
 import { useOperations } from '../state/OperationsContext';
-import { AppButton, AppCard, AppFlex, AppResult } from '../ui';
+import { AppAlert, AppButton, AppFlex } from '../ui';
 
 const CHUNK_ERROR = /dynamically imported module|Importing a module script failed|ChunkLoadError/i;
 
@@ -12,38 +12,38 @@ function RouteErrorFallback({ error }: { readonly error: Error }) {
   const { operations, paid } = useOperations();
   const isChunk = CHUNK_ERROR.test(error.message);
   return (
-    <div role="alert" style={{ maxWidth: 640, margin: '24px auto' }}>
-      <AppCard>
-        <AppResult
-          status="error"
-          title={isChunk ? 'Não foi possível carregar esta tela' : 'Algo deu errado nesta tela'}
-          description={
-            isChunk
+    <div style={{ maxWidth: 640, margin: '24px auto' }}>
+      <AppAlert
+        tone="error"
+        role="alert"
+        title={isChunk ? 'Não foi possível carregar esta tela' : 'Algo deu errado nesta tela'}
+      >
+        <AppFlex vertical gap="middle">
+          <span>
+            {isChunk
               ? 'Pode ser a conexão ou uma versão nova do app. Recarregue a página para tentar de novo.'
-              : 'Seus dados continuam salvos neste navegador. Recarregue a página; se o erro voltar, exporte um backup.'
-          }
-          actions={
-            <AppFlex gap="small" justify="center" wrap>
-              <AppButton variant="primary" onClick={() => window.location.reload()}>
-                Recarregar
-              </AppButton>
-              <AppButton
-                icon="download"
-                onClick={() => {
-                  downloadText(
-                    'backup-fiscotrack.json',
-                    serializeBackup({ operations, paidDarfs: toPaidMarks(paid) }),
-                    'application/json',
-                  );
-                  markBackupDone();
-                }}
-              >
-                Exportar backup
-              </AppButton>
-            </AppFlex>
-          }
-        />
-      </AppCard>
+              : 'Seus dados continuam salvos neste navegador. Recarregue a página; se o erro voltar, exporte um backup.'}
+          </span>
+          <AppFlex gap="small" wrap>
+            <AppButton variant="primary" onClick={() => window.location.reload()}>
+              Recarregar
+            </AppButton>
+            <AppButton
+              icon="download"
+              onClick={() => {
+                downloadText(
+                  'backup-fiscotrack.json',
+                  serializeBackup({ operations, paidDarfs: toPaidMarks(paid) }),
+                  'application/json',
+                );
+                markBackupDone();
+              }}
+            >
+              Exportar backup
+            </AppButton>
+          </AppFlex>
+        </AppFlex>
+      </AppAlert>
     </div>
   );
 }

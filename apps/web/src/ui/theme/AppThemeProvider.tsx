@@ -1,4 +1,4 @@
-import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 import ptBR from 'antd/locale/pt_BR';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
@@ -83,10 +83,8 @@ export function AppThemeProvider({ children, mode }: AppThemeProviderProps) {
   return (
     <PaletteContext.Provider value={PALETTES[resolved]}>
       <ConfigProvider locale={ptBR} theme={config}>
-        <AntdApp component={false}>
-          <BodySync />
-          {children}
-        </AntdApp>
+        <BodySync />
+        {children}
       </ConfigProvider>
     </PaletteContext.Provider>
   );
