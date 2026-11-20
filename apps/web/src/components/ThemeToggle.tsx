@@ -1,28 +1,20 @@
-import { useState } from 'react';
-
-const STORAGE_KEY = 'fiscotrack-theme';
-
-function persistTheme(isDark: boolean): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, isDark ? 'dark' : 'light');
-  } catch {
-    // Armazenamento indisponível (modo privado): o tema vale só para esta sessão.
-  }
-}
+import { setTheme, useTheme } from '../theme';
+import { Icon } from './Icon';
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
-
-  const toggle = () => {
-    const next = !isDark;
-    document.documentElement.classList.toggle('dark', next);
-    persistTheme(next);
-    setIsDark(next);
-  };
+  const theme = useTheme();
+  const isDark = theme === 'dark';
+  const label = isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro';
 
   return (
-    <button type="button" className="btn-secondary" aria-pressed={isDark} onClick={toggle}>
-      {isDark ? 'Tema claro' : 'Tema escuro'}
+    <button
+      type="button"
+      className="icon-btn"
+      aria-label={label}
+      title={label}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+    >
+      <Icon name={isDark ? 'sun' : 'moon'} />
     </button>
   );
 }

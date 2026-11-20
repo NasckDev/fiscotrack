@@ -12,16 +12,20 @@ import type { OperationsRepository } from '../storage/operationsRepository';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
 
-interface OperationsState {
+interface DataState {
   readonly status: LoadStatus;
   readonly operations: readonly Operation[];
+  readonly paidMonths: ReadonlySet<string>;
   readonly errorMessage: string | null;
 }
 
-export interface OperationsContextValue extends OperationsState {
+export interface OperationsContextValue extends DataState {
+  /** Insere ou atualiza (pelo id). */
   addMany(operations: readonly Operation[]): Promise<void>;
   remove(id: string): Promise<void>;
   clear(): Promise<void>;
+  setDarfPaid(month: string, paid: boolean): Promise<void>;
+  restore(operations: readonly Operation[], paidMonths: readonly string[]): Promise<void>;
   reload(): Promise<void>;
 }
 
@@ -31,37 +35,46 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'Erro desconhecido ao acessar os dados locais.';
 }
 
+const INITIAL_STATE: DataState = {
+  status: 'loading',
+  operations: [],
+  paidMonths: new Set(),
+  errorMessage: null,
+};
+
+async function readAll(repository: OperationsRepository): Promise<DataState> {
+  const [operations, paid] = await Promise.all([repository.list(), repository.listPaid()]);
+  return { status: 'ready', operations, paidMonths: new Set(paid), errorMessage: null };
+}
+
+function failure(error: unknown): DataState {
+  return { ...INITIAL_STATE, status: 'error', errorMessage: messageOf(error) };
+}
+
 interface OperationsProviderProps {
   readonly repository: OperationsRepository;
   readonly children: ReactNode;
 }
 
 export function OperationsProvider({ repository, children }: OperationsProviderProps) {
-  const [state, setState] = useState<OperationsState>({
-    status: 'loading',
-    operations: [],
-    errorMessage: null,
-  });
+  const [state, setState] = useState<DataState>(INITIAL_STATE);
 
   const reload = useCallback(async () => {
     try {
-      const operations = await repository.list();
-      setState({ status: 'ready', operations, errorMessage: null });
+      setState(await readAll(repository));
     } catch (error: unknown) {
-      setState({ status: 'error', operations: [], errorMessage: messageOf(error) });
+      setState(failure(error));
     }
   }, [repository]);
 
   useEffect(() => {
     let cancelled = false;
-    repository.list().then(
-      (operations) => {
-        if (!cancelled) setState({ status: 'ready', operations, errorMessage: null });
+    readAll(repository).then(
+      (next) => {
+        if (!cancelled) setState(next);
       },
       (error: unknown) => {
-        if (!cancelled) {
-          setState({ status: 'error', operations: [], errorMessage: messageOf(error) });
-        }
+        if (!cancelled) setState(failure(error));
       },
     );
     return () => {
@@ -84,6 +97,9 @@ export function OperationsProvider({ repository, children }: OperationsProviderP
       addMany: (operations) => mutate(() => repository.addMany(operations)),
       remove: (id) => mutate(() => repository.remove(id)),
       clear: () => mutate(() => repository.clear()),
+      setDarfPaid: (month, paid) => mutate(() => repository.setPaid(month, paid)),
+      restore: (operations, paidMonths) =>
+        mutate(() => repository.replaceAll(operations, paidMonths)),
     }),
     [state, reload, mutate, repository],
   );

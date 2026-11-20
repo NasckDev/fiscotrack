@@ -1,0 +1,187 @@
+/*
+ * Identidade visual do FiscoTrack: verde-floresta, creme, menta (ganho), rosa (perda) e dourado (DARF).
+ * Tipografia: Manrope (interface) e JetBrains Mono (valores, tabular).
+ * Pares de texto/fundo conferidos para contraste AA (scripts/contrast.mjs).
+ */
+
+:root {
+  --ft-font-family-sans: 'Manrope Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ft-font-family-mono:
+    'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --ft-font-size-xs: 0.75rem;
+  --ft-font-size-sm: 0.875rem;
+  --ft-font-size-md: 1rem;
+  --ft-font-size-lg: 1.125rem;
+  --ft-font-size-xl: 1.375rem;
+  --ft-font-size-xxl: 1.75rem;
+  --ft-font-line-height-tight: 1.2;
+  --ft-font-line-height-normal: 1.55;
+  --ft-radius-sm: 8px;
+  --ft-radius-md: 12px;
+  --ft-radius-lg: 16px;
+  --ft-radius-xl: 20px;
+  --ft-radius-full: 9999px;
+  --ft-motion-duration-fast: 150ms;
+  --ft-motion-duration-normal: 220ms;
+  --ft-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ft-sidebar-width: 16rem;
+  --ft-tabbar-height: 3.75rem;
+  --ft-header-height: 3.5rem;
+  --ft-content-max: 72rem;
+}
+
+/* Claro (padrão) */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --ft-color-bg: #f7f6f1;
+  --ft-color-surface: #efeee6;
+  --ft-color-surface-raised: #ffffff;
+  --ft-color-border: #7c8478;
+  --ft-color-border-strong: #4f5a52;
+  --ft-border-soft: #e3e1d6;
+  --ft-color-text: #0e1f18;
+  --ft-color-text-muted: #4b5a53;
+  --ft-color-text-on-accent: #f7f6f1;
+  --ft-color-accent: #0e3b2e;
+  --ft-color-accent-hover: #0a2e24;
+  --ft-color-accent-active: #07231b;
+  --ft-color-accent-surface: #e1eee7;
+  --ft-color-success: #0f7a50;
+  --ft-color-success-surface: #e1f3ea;
+  --ft-color-danger: #b92b47;
+  --ft-color-danger-surface: #fbe6ea;
+  --ft-color-warning: #7e5a0b;
+  --ft-color-warning-surface: #f8efd6;
+  --ft-color-info: #1d5c7a;
+  --ft-color-info-surface: #e2eff5;
+  --ft-color-focus-ring: #1d5fd6;
+  --ft-color-overlay: rgb(11 21 18 / 0.55);
+  --ft-color-skeleton: #e8e6db;
+  --ft-canvas: var(--ft-color-bg);
+  --ft-card: var(--ft-color-surface-raised);
+  --ft-card-subtle: var(--ft-color-surface);
+  --ft-nav: #fbfaf6;
+  --ft-chart-gain: #1f9d6b;
+  --ft-chart-loss: #d64561;
+  --ft-chart-darf: #c8961c;
+  --ft-chart-line: #0e3b2e;
+  --ft-chart-grid: #e3e1d6;
+  --ft-donut-1: #0e3b2e;
+  --ft-donut-2: #1f9d6b;
+  --ft-donut-3: #c8961c;
+  --ft-donut-4: #d64561;
+  --ft-donut-5: #2a7f8e;
+  --ft-donut-6: #8fb5a2;
+  --ft-donut-7: #7a5c8e;
+  --ft-hero-from: #0e3b2e;
+  --ft-hero-to: #17624a;
+  --ft-hero-text: #f7f6f1;
+  --ft-hero-muted: #b9d3c6;
+  --ft-hero-line: #2e6b55;
+  --ft-shadow-card: 0 1px 1px rgb(14 59 46 / 0.04), 0 6px 16px -6px rgb(14 59 46 / 0.1);
+  --ft-shadow-lg: 0 20px 44px -12px rgb(14 59 46 / 0.28);
+}
+
+/* Escuro */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --ft-color-bg: #0b1512;
+  --ft-color-surface: #16271f;
+  --ft-color-surface-raised: #111e19;
+  --ft-color-border: #5b7167;
+  --ft-color-border-strong: #8ca398;
+  --ft-border-soft: #22372e;
+  --ft-color-text: #e8f0eb;
+  --ft-color-text-muted: #9fb5aa;
+  --ft-color-text-on-accent: #06140e;
+  --ft-color-accent: #46c894;
+  --ft-color-accent-hover: #6ad9ab;
+  --ft-color-accent-active: #8fe6c1;
+  --ft-color-accent-surface: #14342a;
+  --ft-color-success: #4fd6a0;
+  --ft-color-success-surface: #0f2e22;
+  --ft-color-danger: #ff8ea3;
+  --ft-color-danger-surface: #3a1620;
+  --ft-color-warning: #f0c25a;
+  --ft-color-warning-surface: #33280c;
+  --ft-color-info: #7cc4e0;
+  --ft-color-info-surface: #10303d;
+  --ft-color-focus-ring: #7db2ff;
+  --ft-color-overlay: rgb(0 0 0 / 0.65);
+  --ft-color-skeleton: #1d3027;
+  --ft-nav: #0b1512;
+  --ft-chart-gain: #3fbf8a;
+  --ft-chart-loss: #f0657f;
+  --ft-chart-darf: #e0b040;
+  --ft-chart-line: #6fddb0;
+  --ft-chart-grid: #22372e;
+  --ft-donut-1: #46c894;
+  --ft-donut-2: #e0b040;
+  --ft-donut-3: #f0657f;
+  --ft-donut-4: #5bb5c9;
+  --ft-donut-5: #a08cc2;
+  --ft-donut-6: #8fb5a2;
+  --ft-donut-7: #e8f0eb;
+  --ft-hero-from: #0f4a38;
+  --ft-hero-to: #0c2f24;
+  --ft-hero-line: #2e6b55;
+  --ft-shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+  --ft-shadow-lg: 0 20px 44px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Escuro automático (sem data-theme explícito), espelhando o bloco acima */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --ft-color-bg: #0b1512;
+    --ft-color-surface: #16271f;
+    --ft-color-surface-raised: #111e19;
+    --ft-color-border: #5b7167;
+    --ft-color-border-strong: #8ca398;
+    --ft-border-soft: #22372e;
+    --ft-color-text: #e8f0eb;
+    --ft-color-text-muted: #9fb5aa;
+    --ft-color-text-on-accent: #06140e;
+    --ft-color-accent: #46c894;
+    --ft-color-accent-hover: #6ad9ab;
+    --ft-color-accent-active: #8fe6c1;
+    --ft-color-accent-surface: #14342a;
+    --ft-color-success: #4fd6a0;
+    --ft-color-success-surface: #0f2e22;
+    --ft-color-danger: #ff8ea3;
+    --ft-color-danger-surface: #3a1620;
+    --ft-color-warning: #f0c25a;
+    --ft-color-warning-surface: #33280c;
+    --ft-color-info: #7cc4e0;
+    --ft-color-info-surface: #10303d;
+    --ft-color-focus-ring: #7db2ff;
+    --ft-color-overlay: rgb(0 0 0 / 0.65);
+    --ft-color-skeleton: #1d3027;
+    --ft-nav: #0b1512;
+    --ft-chart-gain: #3fbf8a;
+    --ft-chart-loss: #f0657f;
+    --ft-chart-darf: #e0b040;
+    --ft-chart-line: #6fddb0;
+    --ft-chart-grid: #22372e;
+    --ft-donut-1: #46c894;
+    --ft-donut-2: #e0b040;
+    --ft-donut-3: #f0657f;
+    --ft-donut-4: #5bb5c9;
+    --ft-donut-5: #a08cc2;
+    --ft-donut-6: #8fb5a2;
+    --ft-donut-7: #e8f0eb;
+    --ft-hero-from: #0f4a38;
+    --ft-hero-to: #0c2f24;
+    --ft-hero-line: #2e6b55;
+    --ft-shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+    --ft-shadow-lg: 0 20px 44px -12px rgb(0 0 0 / 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ft-motion-duration-fast: 0ms;
+    --ft-motion-duration-normal: 0ms;
+  }
+}

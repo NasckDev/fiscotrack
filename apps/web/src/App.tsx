@@ -1,62 +1,58 @@
-import { NavLink, Route, Routes } from 'react-router';
-import { Disclaimer } from './components/Disclaimer';
-import { ThemeToggle } from './components/ThemeToggle';
-import { DashboardPage } from './pages/DashboardPage';
-import { ImportPage } from './pages/ImportPage';
-import { OperationsPage } from './pages/OperationsPage';
-import { RulesPage } from './pages/RulesPage';
+import { lazy, Suspense } from 'react';
+import { Route, Routes } from 'react-router';
+import { AppShell } from './components/AppShell';
+import { SkeletonBlock } from './components/ui';
 
-const NAV_ITEMS = [
-  { to: '/', label: 'Painel' },
-  { to: '/operacoes', label: 'Operações' },
-  { to: '/importar', label: 'Importar CSV' },
-  { to: '/regras', label: 'Regras' },
-] as const;
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const PortfolioPage = lazy(() =>
+  import('./pages/PortfolioPage').then((m) => ({ default: m.PortfolioPage })),
+);
+const AssetPage = lazy(() => import('./pages/AssetPage').then((m) => ({ default: m.AssetPage })));
+const OperationsPage = lazy(() =>
+  import('./pages/OperationsPage').then((m) => ({ default: m.OperationsPage })),
+);
+const ImportPage = lazy(() =>
+  import('./pages/ImportPage').then((m) => ({ default: m.ImportPage })),
+);
+const TaxPage = lazy(() => import('./pages/TaxPage').then((m) => ({ default: m.TaxPage })));
+const DarfsPage = lazy(() => import('./pages/DarfsPage').then((m) => ({ default: m.DarfsPage })));
+const RulesPage = lazy(() => import('./pages/RulesPage').then((m) => ({ default: m.RulesPage })));
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+);
+const MorePage = lazy(() => import('./pages/MorePage').then((m) => ({ default: m.MorePage })));
 
-const navClass = ({ isActive }: { isActive: boolean }) =>
-  isActive ? 'nav-link nav-link-active' : 'nav-link';
+function RouteFallback() {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="sr-only">Carregando…</span>
+      <div className="space-y-4" aria-hidden="true">
+        <SkeletonBlock className="h-10 w-56" />
+        <SkeletonBlock className="h-40" />
+        <SkeletonBlock className="h-72" />
+      </div>
+    </div>
+  );
+}
 
 export function App() {
   return (
-    <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-4 px-4 py-4">
-      <a href="#conteudo" className="skip-link">
-        Pular para o conteúdo
-      </a>
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">FiscoTrack</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Resultados de renda variável com regras explicáveis
-          </p>
-        </div>
-        <ThemeToggle />
-      </header>
-      <nav aria-label="Principal">
-        <ul className="flex flex-wrap gap-2">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.to}>
-              <NavLink to={item.to} end className={navClass}>
-                {item.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <Disclaimer />
-      <main id="conteudo" tabIndex={-1} className="flex-1">
+    <AppShell>
+      <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/carteira" element={<PortfolioPage />} />
+          <Route path="/carteira/:ticker" element={<AssetPage />} />
           <Route path="/operacoes" element={<OperationsPage />} />
           <Route path="/importar" element={<ImportPage />} />
+          <Route path="/apuracao" element={<TaxPage />} />
+          <Route path="/darfs" element={<DarfsPage />} />
           <Route path="/regras" element={<RulesPage />} />
+          <Route path="/config" element={<SettingsPage />} />
+          <Route path="/mais" element={<MorePage />} />
+          <Route path="*" element={<HomePage />} />
         </Routes>
-      </main>
-      <footer className="text-xs text-slate-600 dark:text-slate-400">
-        Projeto open source educacional · MIT ·{' '}
-        <a href="https://github.com/NasckDev/fiscotrack" className="link">
-          Código no GitHub
-        </a>
-      </footer>
-    </div>
+      </Suspense>
+    </AppShell>
   );
 }

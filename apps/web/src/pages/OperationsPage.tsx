@@ -1,166 +1,348 @@
-import { formatBRL } from '@fiscotrack/engine';
-import { useState, type FormEvent } from 'react';
-import { csvRowSchema, rowToOperation } from '../domain/csv';
-import { formatDate } from '../domain/format';
+import { formatBRL, type Operation } from '@fiscotrack/engine';
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DataGate } from '../components/DataGate';
+import { Icon } from '../components/Icon';
+import { OperationDialog } from '../components/OperationDialog';
+import { Reveal } from '../components/Reveal';
+import { useToasts } from '../components/Toasts';
+import { PageHeader } from '../components/ui';
+import { operationsToCsv } from '../domain/csvExport';
+import { formatDate, formatDateShort, plural } from '../domain/format';
+import { downloadText } from '../download';
 import { useOperations } from '../state/OperationsContext';
 
-function readForm(form: HTMLFormElement): Record<string, string> {
-  const data = new FormData(form);
-  return Object.fromEntries(
-    [...data.entries()].map(([key, value]) => [key, typeof value === 'string' ? value : '']),
+interface Filters {
+  readonly query: string;
+  readonly side: 'all' | 'BUY' | 'SELL';
+  readonly category: 'all' | 'SWING' | 'DAY_TRADE';
+}
+
+const NO_FILTERS: Filters = { query: '', side: 'all', category: 'all' };
+
+function applyFilters(operations: readonly Operation[], filters: Filters): readonly Operation[] {
+  const query = filters.query.trim().toUpperCase();
+  return operations
+    .filter((operation) => query === '' || operation.ticker.includes(query))
+    .filter((operation) => filters.side === 'all' || operation.side === filters.side)
+    .filter((operation) => filters.category === 'all' || operation.category === filters.category)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+}
+
+function SideBadge({ operation }: { readonly operation: Operation }) {
+  const isBuy = operation.side === 'BUY';
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`badge ${isBuy ? 'badge-info' : 'badge-accent'}`}>
+        {isBuy ? 'Compra' : 'Venda'}
+      </span>
+      {operation.category === 'DAY_TRADE' && <span className="badge badge-warning">Day trade</span>}
+    </span>
   );
 }
 
-function OperationForm() {
-  const { addMany } = useOperations();
-  const [errors, setErrors] = useState<readonly string[]>([]);
+interface RowActionsProps {
+  readonly operation: Operation;
+  readonly onEdit: (operation: Operation) => void;
+  readonly onDelete: (operation: Operation) => void;
+}
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const parsed = csvRowSchema.safeParse(readForm(form));
-    if (!parsed.success) {
-      setErrors(parsed.error.issues.map((issue) => issue.message));
-      return;
-    }
-    setErrors([]);
-    await addMany([rowToOperation(parsed.data, `manual-${crypto.randomUUID()}`)]);
-    form.reset();
+type ListProps = { readonly operations: readonly Operation[] } & Omit<RowActionsProps, 'operation'>;
+
+function RowActions({ operation, onEdit, onDelete }: RowActionsProps) {
+  const label = `${operation.ticker} em ${formatDate(operation.date)}`;
+  return (
+    <span className="inline-flex">
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={`Editar operação de ${label}`}
+        onClick={() => onEdit(operation)}
+      >
+        <Icon name="pencil" size={18} />
+      </button>
+      <button
+        type="button"
+        className="icon-btn hover:text-danger"
+        aria-label={`Excluir operação de ${label}`}
+        onClick={() => onDelete(operation)}
+      >
+        <Icon name="trash" size={18} />
+      </button>
+    </span>
+  );
+}
+
+const HEADERS: readonly { label: string; align: string }[] = [
+  { label: 'Data', align: '' },
+  { label: 'Ativo', align: '' },
+  { label: 'Tipo', align: '' },
+  { label: 'Qtd.', align: 'text-right' },
+  { label: 'Preço', align: 'text-right' },
+  { label: 'Custos', align: 'text-right' },
+];
+
+function OperationsTable({ operations, ...actions }: ListProps) {
+  return (
+    <table className="hidden w-full text-left text-sm md:table">
+      <caption className="sr-only">Operações salvas neste navegador</caption>
+      <thead className="text-xs text-muted">
+        <tr className="border-b border-line-soft">
+          {HEADERS.map((header) => (
+            <th
+              key={header.label}
+              scope="col"
+              className={`px-3 py-3 font-medium first:px-5 ${header.align}`}
+            >
+              {header.label}
+            </th>
+          ))}
+          <th scope="col" className="px-3 py-3">
+            <span className="sr-only">Ações</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {operations.map((operation) => (
+          <tr
+            key={operation.id}
+            className="border-b border-line-soft transition-colors last:border-0 hover:bg-card-subtle"
+          >
+            <td className="num px-5 py-2 text-xs">{formatDate(operation.date)}</td>
+            <td className="px-3 py-2 font-extrabold">
+              <Link to={`/carteira/${operation.ticker}`} className="hover:underline">
+                {operation.ticker}
+              </Link>
+            </td>
+            <td className="px-3 py-2">
+              <SideBadge operation={operation} />
+            </td>
+            <td className="num px-3 py-2 text-right">{operation.quantity}</td>
+            <td className="num px-3 py-2 text-right">{formatBRL(operation.unitPriceCents)}</td>
+            <td className="num px-3 py-2 text-right text-muted">
+              {formatBRL(operation.feesCents)}
+            </td>
+            <td className="px-2 py-1 text-right">
+              <RowActions operation={operation} {...actions} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function OperationCards({ operations, ...actions }: ListProps) {
+  return (
+    <ul className="divide-y divide-line-soft md:hidden" aria-label="Operações salvas">
+      {operations.map((operation) => (
+        <li key={operation.id} className="flex items-center gap-1 py-2 pr-1 pl-4">
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2">
+              <strong>{operation.ticker}</strong>
+              <SideBadge operation={operation} />
+            </p>
+            <p className="num mt-1 text-xs text-muted">
+              {formatDateShort(operation.date)} · {operation.quantity} ×{' '}
+              {formatBRL(operation.unitPriceCents)}
+            </p>
+          </div>
+          <RowActions operation={operation} {...actions} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function FilterBar({ filters, onChange }: { filters: Filters; onChange: (next: Filters) => void }) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-line-soft p-3 sm:flex-row">
+      <div className="relative flex-1">
+        <Icon
+          name="search"
+          size={16}
+          className="pointer-events-none absolute top-3.5 left-3 text-muted"
+        />
+        <input
+          type="search"
+          aria-label="Buscar por ativo"
+          placeholder="Buscar ativo (ex.: PETR4)"
+          value={filters.query}
+          onChange={(event) => onChange({ ...filters, query: event.target.value })}
+          className="input pl-9"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:contents">
+        <select
+          aria-label="Filtrar por tipo"
+          value={filters.side}
+          onChange={(event) =>
+            onChange({ ...filters, side: event.target.value as Filters['side'] })
+          }
+          className="input sm:w-40"
+        >
+          <option value="all">Compra e venda</option>
+          <option value="BUY">Só compras</option>
+          <option value="SELL">Só vendas</option>
+        </select>
+        <select
+          aria-label="Filtrar por modalidade"
+          value={filters.category}
+          onChange={(event) =>
+            onChange({ ...filters, category: event.target.value as Filters['category'] })
+          }
+          className="input sm:w-48"
+        >
+          <option value="all">Todas as modalidades</option>
+          <option value="SWING">Comum</option>
+          <option value="DAY_TRADE">Day trade</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function OperationsContent() {
+  const { operations, addMany, remove, clear, restore, paidMonths } = useOperations();
+  const toasts = useToasts();
+  const [params, setParams] = useSearchParams();
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [editing, setEditing] = useState<Operation | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
+  const isDialogOpen = params.get('nova') === '1' || editing !== null;
+  const visible = applyFilters(operations, filters);
+
+  const closeDialog = () => {
+    setEditing(null);
+    if (params.has('nova')) setParams({}, { replace: true });
+  };
+
+  const save = async (operation: Operation, isEdit: boolean) => {
+    await addMany([operation]);
+    closeDialog();
+    toasts.show(isEdit ? 'Operação atualizada.' : 'Operação adicionada.');
+  };
+
+  const handleDelete = async (operation: Operation) => {
+    await remove(operation.id);
+    toasts.show(`Operação de ${operation.ticker} excluída.`, {
+      action: { label: 'Desfazer', run: () => void addMany([operation]) },
+    });
+  };
+
+  const handleClear = async () => {
+    const snapshot = { operations, paid: [...paidMonths] };
+    setIsClearing(false);
+    await clear();
+    toasts.show('Todas as operações foram apagadas.', {
+      action: { label: 'Desfazer', run: () => void restore(snapshot.operations, snapshot.paid) },
+    });
+  };
+
+  const rowActions = {
+    onEdit: setEditing,
+    onDelete: (operation: Operation) => void handleDelete(operation),
   };
 
   return (
-    <form
-      className="card grid gap-3 sm:grid-cols-2"
-      onSubmit={(event) => void handleSubmit(event)}
-      aria-describedby="form-erros"
-      noValidate
-    >
-      <label className="field">
-        Data
-        <input name="data" type="date" required className="input" />
-      </label>
-      <label className="field">
-        Ticker
-        <input name="ticker" required placeholder="PETR4" className="input uppercase" />
-      </label>
-      <label className="field">
-        Tipo
-        <select name="tipo" className="input">
-          <option value="compra">Compra</option>
-          <option value="venda">Venda</option>
-        </select>
-      </label>
-      <label className="field">
-        Modalidade
-        <select name="modalidade" className="input">
-          <option value="comum">Operação comum</option>
-          <option value="daytrade">Day trade</option>
-        </select>
-      </label>
-      <label className="field">
-        Quantidade
-        <input name="quantidade" inputMode="numeric" required className="input" />
-      </label>
-      <label className="field">
-        Preço unitário (R$)
-        <input name="preco" inputMode="decimal" required placeholder="32,50" className="input" />
-      </label>
-      <label className="field">
-        Custos da operação (R$)
-        <input name="taxas" inputMode="decimal" defaultValue="0" className="input" />
-      </label>
-      <div className="flex items-end">
-        <button type="submit" className="btn-primary w-full">
-          Adicionar operação
-        </button>
-      </div>
-      <div id="form-erros" aria-live="assertive" className="sm:col-span-2">
-        {errors.length > 0 && (
-          <ul role="alert" className="list-disc pl-5 text-sm text-red-700 dark:text-red-300">
-            {errors.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </form>
+    <div>
+      <PageHeader
+        title="Operações"
+        description={`${plural(operations.length, 'operação salva', 'operações salvas')} neste navegador`}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link to="/importar" className="btn btn-secondary">
+              <Icon name="upload" size={16} />
+              Importar CSV
+            </Link>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setParams({ nova: '1' })}
+            >
+              <Icon name="plus" size={16} />
+              Nova operação
+            </button>
+          </div>
+        }
+      />
+      <Reveal>
+        <section aria-label="Lista de operações" className="card overflow-hidden">
+          <FilterBar filters={filters} onChange={setFilters} />
+          {visible.length === 0 ? (
+            <div className="flex flex-col items-center px-6 py-14 text-center">
+              <span className="flex size-12 items-center justify-center rounded-full bg-accent-surface text-accent">
+                <Icon name="search" size={24} />
+              </span>
+              <p className="mt-4 font-bold">Nenhuma operação encontrada</p>
+              <p className="mt-1 text-sm text-muted">
+                {operations.length === 0
+                  ? 'Adicione uma operação ou importe um CSV para começar.'
+                  : 'Ajuste a busca ou os filtros para ver mais resultados.'}
+              </p>
+              {operations.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary mt-4"
+                  onClick={() => setFilters(NO_FILTERS)}
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <OperationsTable operations={visible} {...rowActions} />
+              <OperationCards operations={visible} {...rowActions} />
+            </>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft p-3">
+            <p className="text-xs text-muted" aria-live="polite">
+              {plural(visible.length, 'operação exibida', 'operações exibidas')}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={visible.length === 0}
+                onClick={() =>
+                  downloadText('operacoes-fiscotrack.csv', operationsToCsv(visible), 'text/csv')
+                }
+              >
+                <Icon name="download" size={16} />
+                Exportar CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={operations.length === 0}
+                onClick={() => setIsClearing(true)}
+              >
+                <Icon name="trash" size={16} />
+                Apagar todas
+              </button>
+            </div>
+          </div>
+        </section>
+      </Reveal>
+      <OperationDialog open={isDialogOpen} editing={editing} onClose={closeDialog} onSave={save} />
+      <ConfirmDialog
+        open={isClearing}
+        title="Apagar todas as operações?"
+        message={`As ${plural(operations.length, 'operação', 'operações')} e os DARFs marcados como pagos serão removidos deste navegador. Você poderá desfazer logo em seguida.`}
+        confirmLabel="Apagar tudo"
+        onConfirm={() => void handleClear()}
+        onCancel={() => setIsClearing(false)}
+      />
+    </div>
   );
 }
 
 export function OperationsPage() {
-  const { operations, remove, clear } = useOperations();
-  const sorted = [...operations].sort((a, b) => a.date.localeCompare(b.date));
-
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Operações</h2>
-      <OperationForm />
-      {sorted.length === 0 ? (
-        <p>Nenhuma operação lançada.</p>
-      ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">Operações salvas neste navegador</caption>
-            <thead>
-              <tr className="border-b border-slate-300 dark:border-slate-600">
-                <th scope="col" className="py-2 pr-3">
-                  Data
-                </th>
-                <th scope="col" className="py-2 pr-3">
-                  Ticker
-                </th>
-                <th scope="col" className="py-2 pr-3">
-                  Tipo
-                </th>
-                <th scope="col" className="py-2 pr-3 text-right">
-                  Qtd.
-                </th>
-                <th scope="col" className="py-2 pr-3 text-right">
-                  Preço
-                </th>
-                <th scope="col" className="py-2 pr-3 text-right">
-                  Custos
-                </th>
-                <th scope="col" className="py-2">
-                  <span className="sr-only">Ações</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((operation) => (
-                <tr key={operation.id} className="border-b border-slate-200 dark:border-slate-700">
-                  <td className="py-2 pr-3">{formatDate(operation.date)}</td>
-                  <td className="py-2 pr-3">{operation.ticker}</td>
-                  <td className="py-2 pr-3">
-                    {operation.side === 'BUY' ? 'Compra' : 'Venda'}
-                    {operation.category === 'DAY_TRADE' ? ' (day trade)' : ''}
-                  </td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{operation.quantity}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">
-                    {formatBRL(operation.unitPriceCents)}
-                  </td>
-                  <td className="py-2 pr-3 text-right tabular-nums">
-                    {formatBRL(operation.feesCents)}
-                  </td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() => void remove(operation.id)}
-                      aria-label={`Excluir operação de ${operation.ticker} em ${formatDate(operation.date)}`}
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button type="button" className="btn-secondary mt-3" onClick={() => void clear()}>
-            Apagar todas as operações
-          </button>
-        </div>
-      )}
-    </div>
+    <DataGate allowEmpty>
+      <OperationsContent />
+    </DataGate>
   );
 }
