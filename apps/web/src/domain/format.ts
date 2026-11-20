@@ -23,6 +23,7 @@ const COMPACT_BRL_FORMATTER = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
   notation: 'compact',
+  minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 });
 
