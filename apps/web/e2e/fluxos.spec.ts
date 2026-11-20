@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const ROUTES = [
   ['início', '#/'],
@@ -13,14 +14,39 @@ const ROUTES = [
   ['configurações', '#/config'],
 ] as const;
 
-async function loadExample(page: Page) {
+const BROKER_CSV = [
+  'Data da operação;Ativo;C/V;Qtd;Preço unitário',
+  '12/01/2026;ABEV3;C;1.000;31,40',
+  '19/01/2026;ABEV3;X;100;33,10',
+].join('\n');
+
+/** Primeira visita: o exemplo carrega sozinho. */
+async function openWithExample(page: Page) {
   await page.goto('./');
-  await page.getByRole('button', { name: 'Carregar exemplo' }).click();
   await expect(page.getByRole('region', { name: 'Próximo DARF' })).toBeVisible();
   await page.getByRole('button', { name: 'Fechar aviso' }).click();
 }
 
+async function gotoRoute(page: Page, hash: string) {
+  await page.goto(`./${hash}`);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+}
+
+/** Espera as animações de entrada terminarem: o axe mede contraste com opacidade parcial. */
+async function settle(page: Page) {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.effect?.getTiming().iterations === Infinity ||
+          animation.playState !== 'running',
+      ),
+  );
+}
+
 async function expectNoAxeViolations(page: Page) {
+  await settle(page);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -31,23 +57,37 @@ async function expectNoAxeViolations(page: Page) {
   ).toEqual([]);
 }
 
-test('primeira visita: exemplo em um clique, DARF pago e dados persistem após recarregar', async ({
+test('primeira visita: exemplo automático com selo, DARF pago e dados persistem ao recarregar', async ({
   page,
 }) => {
-  await loadExample(page);
+  await openWithExample(page);
+  await expect(page.getByRole('region', { name: 'Dados de exemplo' })).toBeVisible();
   await page.getByRole('button', { name: 'Marcar como pago' }).click();
   await expect(page.getByText(/marcado como pago/)).toBeVisible();
   await page.reload();
   await expect(page.getByRole('region', { name: 'Próximo DARF' })).toBeVisible();
-  await page.goto('./#/darfs');
+  await gotoRoute(page, '#/darfs');
   await expect(page.getByText('Pago').first()).toBeVisible();
 });
 
+test('"Começar com meus dados" remove o exemplo e ele não volta ao recarregar', async ({
+  page,
+}) => {
+  await openWithExample(page);
+  await page.getByRole('button', { name: 'Começar com meus dados' }).click();
+  await page.getByRole('button', { name: 'Remover exemplo' }).click();
+  await expect(page.getByText('Nenhuma operação ainda')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Nenhuma operação ainda')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Dados de exemplo' })).toBeHidden();
+});
+
 test('operações: criar, editar, excluir e desfazer', async ({ page }) => {
-  await loadExample(page);
-  await page.goto('./#/operacoes');
+  await openWithExample(page);
+  await gotoRoute(page, '#/operacoes');
   await page.getByRole('button', { name: 'Nova operação' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nova operação' });
+  await expect(dialog.getByLabel('Data')).toBeFocused();
   await dialog.getByLabel('Data').fill('2026-01-12');
   await dialog.getByLabel('Ativo (ticker)').fill('ABEV3');
   await dialog.getByLabel('Quantidade').fill('100');
@@ -76,12 +116,56 @@ test('operações: criar, editar, excluir e desfazer', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('importação: mapeia colunas, corrige a linha com erro e importa', async ({ page }) => {
+  await openWithExample(page);
+  await gotoRoute(page, '#/importar');
+  await page.getByLabel('Arquivo CSV').setInputFiles({
+    name: 'corretora.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(BROKER_CSV),
+  });
+  await expect(page.getByText(/Revise a prévia/)).toBeVisible();
+  await page.getByLabel('Corrigir a linha 3').fill('19/01/2026;ABEV3;V;100;33,10');
+  await expect(page.getByText(/2 operações prontas/)).toBeVisible();
+  await page.getByRole('button', { name: 'Importar 2 operações' }).click();
+  await expect(page.getByText('2 operações importadas')).toBeVisible();
+  await gotoRoute(page, '#/operacoes');
+  await page.getByLabel('Buscar por ativo').fill('ABEV3');
+  await expect(page.getByText(/de 2 operações/)).toBeVisible();
+});
+
+test('backup: exporta, apaga tudo com confirmação e restaura com confirmação', async ({
+  page,
+}, testInfo) => {
+  await openWithExample(page);
+  await gotoRoute(page, '#/config');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar backup' }).click();
+  const file = testInfo.outputPath('backup.json');
+  await (await download).saveAs(file);
+
+  await page.getByRole('button', { name: 'Apagar todos os dados' }).click();
+  await page.getByRole('button', { name: 'Apagar tudo' }).click();
+  await expect(page.getByText('Dados apagados deste navegador.')).toBeVisible();
+
+  await page.getByLabel('Arquivo de backup').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: readFileSync(file),
+  });
+  const dialog = page.getByRole('dialog', { name: 'Restaurar este backup?' });
+  await expect(dialog).toContainText('substitui 0 operações');
+  await dialog.getByRole('button', { name: 'Substituir dados' }).click();
+  await expect(page.getByText(/Backup restaurado: 14 operações/)).toBeVisible();
+});
+
 test('paleta de comandos e atalhos de teclado', async ({ page, isMobile }) => {
   test.skip(isMobile, 'atalhos de teclado são de desktop');
-  await loadExample(page);
+  await openWithExample(page);
   await page.keyboard.press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Paleta de comandos' });
-  await palette.getByRole('combobox').fill('apura');
+  await expect(palette.getByRole('combobox')).toBeFocused();
+  await page.keyboard.type('apura');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/apuracao$/);
   await page.keyboard.press('g');
@@ -93,12 +177,28 @@ test('paleta de comandos e atalhos de teclado', async ({ page, isMobile }) => {
   await expect(page.getByRole('dialog', { name: 'Atalhos de teclado' })).toBeHidden();
 });
 
+test('celular: DARFs na barra inferior e menu do header com Configurações', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'só no celular');
+  await openWithExample(page);
+  await page
+    .getByRole('navigation', { name: 'Principal' })
+    .getByRole('link', { name: 'DARFs' })
+    .click();
+  await expect(page).toHaveURL(/#\/darfs$/);
+  await page.getByRole('button', { name: /Menu: importar/ }).click();
+  await page.getByRole('link', { name: /Configurações/ }).click();
+  await expect(page).toHaveURL(/#\/config$/);
+});
+
 test('rota interna recarrega e o botão voltar funciona', async ({ page }) => {
-  await loadExample(page);
-  await page.goto('./#/regras');
+  await openWithExample(page);
+  await gotoRoute(page, '#/regras');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Regras e premissas' })).toBeVisible();
-  await page.goto('./#/config');
+  await gotoRoute(page, '#/config');
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'Regras e premissas' })).toBeVisible();
 });
@@ -106,11 +206,35 @@ test('rota interna recarrega e o botão voltar funciona', async ({ page }) => {
 for (const theme of ['light', 'dark'] as const) {
   test(`acessibilidade (axe) em todas as telas, tema ${theme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: theme });
-    await loadExample(page);
+    await openWithExample(page);
     for (const [, hash] of ROUTES) {
-      await page.goto(`./${hash}`);
-      await page.waitForTimeout(900);
+      await gotoRoute(page, hash);
       await expectNoAxeViolations(page);
     }
+  });
+
+  test(`acessibilidade (axe) com diálogo aberto e estado vazio, tema ${theme}`, async ({
+    page,
+    isMobile,
+  }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await openWithExample(page);
+    await gotoRoute(page, '#/operacoes');
+    await page.getByRole('button', { name: 'Nova operação' }).click();
+    await expect(page.getByRole('dialog', { name: 'Nova operação' })).toBeVisible();
+    await expectNoAxeViolations(page);
+    await page.keyboard.press('Escape');
+    if (!isMobile) {
+      await page.keyboard.press('Control+k');
+      await expect(page.getByRole('dialog', { name: 'Paleta de comandos' })).toBeVisible();
+      await expectNoAxeViolations(page);
+      await page.keyboard.press('Escape');
+    }
+    await gotoRoute(page, '#/config');
+    await page.getByRole('button', { name: 'Apagar todos os dados' }).click();
+    await page.getByRole('button', { name: 'Apagar tudo' }).click();
+    await gotoRoute(page, '#/');
+    await expect(page.getByText('Nenhuma operação ainda')).toBeVisible();
+    await expectNoAxeViolations(page);
   });
 }

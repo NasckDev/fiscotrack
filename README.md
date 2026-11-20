@@ -44,6 +44,13 @@ No celular (390x844):
   apagar dados.
 - **Produtividade:** paleta de comandos (`Ctrl/⌘ K`), atalhos de teclado (`?` lista todos:
   `G` + letra navega, `N` cria operação).
+- **Primeira visita:** abre com dados de exemplo (fictícios), com selo "Dados de exemplo" e a saída
+  "Começar com meus dados" (confirma e permite desfazer). Quem apagou tudo de propósito não recebe o
+  exemplo de novo.
+- **Robustez:** operações do mesmo dia seguem a ordem de criação (`seq`); importação com CSV no padrão
+  RFC 4180, milhar na quantidade, detecção de repetidas e ids determinísticos; falhas de gravação
+  avisam o que fazer; backup validado e confirmado antes de restaurar; sincronização entre abas;
+  `ErrorBoundary` com "Recarregar" e "Exportar backup"; lembrete de backup e uso de espaço.
 - **Dados locais** (IndexedDB). Nada é enviado a servidores; sem contas e sem telemetria.
 
 ## Identidade visual e acessibilidade
@@ -122,7 +129,8 @@ ADRs: [motor puro](docs/adr/0001-motor-de-calculo-puro.md) ·
 [CSV com erros por linha](docs/adr/0004-importacao-csv-com-erros-por-linha.md) ·
 [identidade visual própria](docs/adr/0005-identidade-visual-propria.md) ·
 [E2E com axe](docs/adr/0006-e2e-com-axe-e-build-portatil.md) ·
-[dados derivados e DARF pago](docs/adr/0007-dados-derivados-e-darf-pago.md)
+[dados derivados e DARF pago](docs/adr/0007-dados-derivados-e-darf-pago.md) ·
+[ordem estável, ids determinísticos e escritas seguras](docs/adr/0008-ordem-estavel-ids-deterministicos-e-escritas-seguras.md)
 
 ## Como rodar
 
@@ -163,14 +171,14 @@ mapeamento antes de importar.
 
 ## Testes e desempenho
 
-| Verificação                              | Resultado                                                                                                       |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Testes do motor (Vitest, table-driven)   | 71 passando                                                                                                     |
-| Testes da web (Vitest + Testing Library) | 52 passando: domínio (DARF, carteira, backup, mapeamento de CSV, exemplo, formatação) e fluxos de interface     |
-| E2E (Playwright, desktop e celular)      | 12 cenários: fluxos críticos, rota interna, voltar do navegador e axe em todas as telas nos dois temas          |
-| Acessibilidade (axe, WCAG 2.2 AA)        | 0 violações nas 9 telas, tema claro e escuro, em 390 e 1440 px                                                  |
-| Contraste (scripts/contrast.mjs)         | 38 pares aprovados (texto ≥ 4,5:1; interface ≥ 3:1)                                                             |
-| Bundle inicial (build portátil)          | JS 410 kB (132 kB gzip) e CSS 45 kB (13 kB gzip); gráficos (Recharts, ~412 kB) e cada tela carregam sob demanda |
+| Verificação                              | Resultado                                                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Testes do motor (Vitest, table-driven)   | 73 passando                                                                                                                                                                                 |
+| Testes da web (Vitest + Testing Library) | 107 passando: domínio (DARF, carteira, backup, mapeamento de CSV, exemplo, formatação) e fluxos de interface                                                                                |
+| E2E (Playwright, desktop e celular)      | 24 execuções (12 cenários em desktop e celular): primeira visita, CRUD com desfazer, importação, backup, paleta, rota interna e axe em todas as telas, com diálogo aberto e no estado vazio |
+| Acessibilidade (axe, WCAG 2.2 AA)        | 0 violações nas 9 telas, tema claro e escuro, em 390 e 1440 px                                                                                                                              |
+| Contraste (scripts/contrast.mjs)         | 38 pares aprovados (texto ≥ 4,5:1; interface ≥ 3:1)                                                                                                                                         |
+| Bundle inicial (build portátil)          | JS 430 kB (140 kB gzip) e CSS 49 kB (14 kB gzip); gráficos (Recharts, ~412 kB) e cada tela carregam sob demanda                                                                             |
 
 Casos do motor: zero operações, somente compras, custos de compra e venda, isenção (abaixo, exatamente
 no limite e um centavo acima), prejuízo acumulado e compensação, day trade separado de operações
