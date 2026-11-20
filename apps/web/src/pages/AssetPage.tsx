@@ -1,30 +1,47 @@
 import { formatBRL } from '@fiscotrack/engine';
-import { Link, useParams } from 'react-router';
-import { LineSeries } from '../components/charts/LineSeries';
+import { useParams } from 'react-router';
 import { DataGate } from '../components/DataGate';
-import { Icon } from '../components/Icon';
-import { Reveal } from '../components/Reveal';
-import { Kpi, Money, PageHeader, StatusBadge } from '../components/ui';
-import { formatDate, formatDateShort } from '../domain/format';
+import { PageHeader } from '../components/PageHeader';
+import { formatCompactBRL, formatDate, formatDateShort } from '../domain/format';
 import { useFinance } from '../state/useFinance';
+import {
+  AppButton,
+  AppCard,
+  AppCol,
+  AppEmpty,
+  AppFlex,
+  AppRow,
+  AppStack,
+  AppStatistic,
+  AppStatus,
+  AppText,
+  AppTitle,
+  useAppColors,
+} from '../ui';
+import { AppLineChart } from '../ui/charts';
 
 const priceOf = (cents: number) => formatBRL(Math.round(cents));
+const asBRL = (value: number) => formatBRL(Math.round(value * 100));
 
 function AssetContent({ ticker }: { readonly ticker: string }) {
   const { holdings } = useFinance();
+  const colors = useAppColors();
   const holding = holdings.find((item) => item.ticker === ticker.toUpperCase());
 
   if (holding === undefined) {
     return (
-      <div className="card mx-auto max-w-xl p-8 text-center">
-        <h1 className="text-xl font-extrabold">Ativo não encontrado</h1>
-        <p className="mt-1 text-muted">
-          Não há operações de {ticker.toUpperCase()} neste navegador.
-        </p>
-        <Link to="/carteira" className="btn btn-primary mt-5">
-          Voltar à carteira
-        </Link>
-      </div>
+      <AppCard padding="lg">
+        <AppEmpty
+          titleAs="h1"
+          icon="search"
+          title="Ativo não encontrado"
+          description={`Não há operações de ${ticker.toUpperCase()} neste navegador.`}
+        >
+          <AppButton variant="primary" to="/carteira">
+            Voltar à carteira
+          </AppButton>
+        </AppEmpty>
+      </AppCard>
     );
   }
 
@@ -35,117 +52,137 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
   }));
 
   return (
-    <div className="space-y-4">
-      <Link to="/carteira" className="btn btn-ghost -ml-3 w-fit">
-        <Icon name="arrow-left" size={16} />
-        Carteira
-      </Link>
+    <AppStack>
       <PageHeader
         title={holding.ticker}
+        trail={[{ label: 'Carteira', to: '/carteira' }]}
         description={
           holding.quantity > 0 ? `${holding.quantity} ações em carteira` : 'Posição encerrada'
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {holding.quantity === 0 && <StatusBadge tone="neutral">Encerrada</StatusBadge>}
-            <Link to={`/operacoes?nova=1&ticker=${holding.ticker}`} className="btn btn-primary">
-              <Icon name="plus" size={16} />
+          <AppFlex gap="small" wrap>
+            {holding.quantity === 0 && <AppStatus tone="neutral">Encerrada</AppStatus>}
+            <AppButton
+              variant="primary"
+              icon="plus"
+              to={`/operacoes?nova=1&ticker=${holding.ticker}`}
+            >
               Nova operação de {holding.ticker}
-            </Link>
-          </div>
+            </AppButton>
+          </AppFlex>
         }
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Reveal index={0}>
-          <Kpi label="Preço médio" icon="calculator">
-            {holding.quantity > 0 ? (
-              <span className="num">{priceOf(holding.avgPriceCents)}</span>
-            ) : (
-              '—'
-            )}
-          </Kpi>
-        </Reveal>
-        <Reveal index={1}>
-          <Kpi label="Quantidade" icon="wallet">
-            <span className="num">{holding.quantity}</span>
-          </Kpi>
-        </Reveal>
-        <Reveal index={2}>
-          <Kpi label="Custo total" icon="receipt">
-            <Money cents={holding.totalCostCents} />
-          </Kpi>
-        </Reveal>
-        <Reveal index={3}>
-          <Kpi
-            label="Resultado realizado"
-            icon="trend-up"
-            hint={holding.realizedDayTradeCents !== 0 ? 'Inclui day trade' : undefined}
-          >
-            <Money cents={holding.realizedCents + holding.realizedDayTradeCents} signed />
-          </Kpi>
-        </Reveal>
-      </div>
+      <AppRow>
+        <AppCol xs={12} lg={6}>
+          <AppCard fullHeight>
+            <AppStatistic
+              title="Preço médio"
+              icon="calculator"
+              value={holding.avgPriceCents}
+              format={(value) => (holding.quantity > 0 ? priceOf(value) : '—')}
+            />
+          </AppCard>
+        </AppCol>
+        <AppCol xs={12} lg={6}>
+          <AppCard fullHeight>
+            <AppStatistic title="Quantidade" icon="wallet" value={holding.quantity} />
+          </AppCard>
+        </AppCol>
+        <AppCol xs={12} lg={6}>
+          <AppCard fullHeight>
+            <AppStatistic
+              title="Custo total"
+              icon="receipt"
+              value={holding.totalCostCents}
+              format={formatBRL}
+            />
+          </AppCard>
+        </AppCol>
+        <AppCol xs={12} lg={6}>
+          <AppCard fullHeight>
+            <AppStatistic
+              title="Resultado realizado"
+              icon="trend-up"
+              value={holding.realizedCents + holding.realizedDayTradeCents}
+              format={formatBRL}
+              tone={
+                holding.realizedCents + holding.realizedDayTradeCents < 0
+                  ? 'loss'
+                  : holding.realizedCents + holding.realizedDayTradeCents > 0
+                    ? 'gain'
+                    : 'default'
+              }
+              hint={holding.realizedDayTradeCents !== 0 ? 'Inclui day trade' : undefined}
+            />
+          </AppCard>
+        </AppCol>
+      </AppRow>
       {points.length <= 1 && (
-        <Reveal index={4}>
-          <section aria-label="Evolução do preço médio" className="card p-5 text-center">
-            <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-accent-surface text-accent">
-              <Icon name="chart" size={24} />
-            </span>
-            <p className="mt-3 font-bold">
-              A evolução do preço médio aparece a partir da 2ª operação
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Registre outra compra ou venda de {holding.ticker} para acompanhar o preço médio.
-            </p>
-          </section>
-        </Reveal>
+        <AppCard aria-label="Evolução do preço médio" padding="lg">
+          <AppEmpty
+            icon="chart"
+            title="A evolução do preço médio aparece a partir da 2ª operação"
+            description={`Registre outra compra ou venda de ${holding.ticker} para acompanhar o preço médio.`}
+          />
+        </AppCard>
       )}
       {points.length > 1 && (
-        <Reveal index={4}>
-          <LineSeries
-            title="Evolução do preço médio"
-            description={`Preço médio de ${holding.ticker} após cada operação, de ${points[0]?.detail ?? ''} a ${
-              points[points.length - 1]?.detail ?? ''
-            }.`}
-            seriesLabel="Preço médio"
-            points={points}
-            formatValue={(value) => formatBRL(Math.round(value * 100))}
-            table={{
-              head: ['Data', 'Preço médio'],
-              rows: points.map((point) => [
-                point.detail,
-                <span key="v" className="num">
-                  {formatBRL(Math.round(point.value * 100))}
-                </span>,
-              ]),
-            }}
-          />
-        </Reveal>
+        <AppLineChart
+          title="Evolução do preço médio"
+          description={`Preço médio de ${holding.ticker} após cada operação, de ${points[0]?.detail ?? ''} a ${points[points.length - 1]?.detail ?? ''}.`}
+          categories={points.map((point) => point.label)}
+          tooltipTitles={points.map((point) => point.detail)}
+          name="Preço médio"
+          values={points.map((point) => point.value)}
+          formatValue={asBRL}
+          formatAxis={formatCompactBRL}
+          table={{
+            head: ['Data', 'Preço médio'],
+            rows: points.map((point) => [
+              point.detail,
+              <AppText key="v" mono>
+                {asBRL(point.value)}
+              </AppText>,
+            ]),
+          }}
+        />
       )}
-      <Reveal index={5}>
-        <section aria-labelledby="historico" className="card p-4 sm:p-5">
-          <h2 id="historico" className="mb-3 text-base font-bold">
+      <section aria-labelledby="historico">
+        <AppCard>
+          <AppTitle level={3} id="historico">
             Histórico de operações
-          </h2>
-          <ul className="divide-y divide-line-soft">
+          </AppTitle>
+          <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
             {[...holding.operations].reverse().map((operation) => (
-              <li key={operation.id} className="flex items-center justify-between gap-3 py-3">
+              <li
+                key={operation.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '12px 0',
+                  borderBottom: `1px solid ${colors.borderSoft}`,
+                }}
+              >
                 <div>
-                  <p className="font-bold">
+                  <AppText strong block>
                     {operation.side === 'BUY' ? 'Compra' : 'Venda'}
                     {operation.category === 'DAY_TRADE' && ' (day trade)'}
-                  </p>
-                  <p className="num text-xs text-muted">{formatDate(operation.date)}</p>
+                  </AppText>
+                  <AppText type="secondary" mono size="sm">
+                    {formatDate(operation.date)}
+                  </AppText>
                 </div>
-                <p className="num text-right text-sm">
+                <AppText mono>
                   {operation.quantity} × {formatBRL(operation.unitPriceCents)}
-                </p>
+                </AppText>
               </li>
             ))}
           </ul>
-        </section>
-      </Reveal>
-    </div>
+        </AppCard>
+      </section>
+    </AppStack>
   );
 }
 

@@ -1,27 +1,57 @@
 import { SHORTCUTS } from '../navigation';
-import { Modal } from './Modal';
+import { AppModal, AppText, useAppColors } from '../ui';
 
-export function ShortcutsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ShortcutsModal({
+  open,
+  onClose,
+}: {
+  readonly open: boolean;
+  readonly onClose: () => void;
+}) {
+  const colors = useAppColors();
   return (
-    <Modal open={open} title="Atalhos de teclado" onClose={onClose} size="sm">
-      <ul className="divide-y divide-line-soft">
+    <AppModal open={open} title="Atalhos de teclado" onClose={onClose} size="sm">
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {SHORTCUTS.map((shortcut) => (
           <li
             key={shortcut.label}
-            className="flex items-center justify-between gap-4 py-2.5 text-sm"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              padding: '10px 0',
+              borderBottom: `1px solid ${colors.borderSoft}`,
+            }}
           >
             <span>{shortcut.label}</span>
-            <span className="flex flex-none items-center gap-1">
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 'none' }}>
               {shortcut.keys.map((key, index) => (
-                <span key={key} className="flex items-center gap-1">
-                  {index > 0 && <span className="text-xs text-muted">depois</span>}
-                  <kbd className="kbd">{key}</kbd>
+                <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {index > 0 && (
+                    <AppText type="secondary" size="sm">
+                      depois
+                    </AppText>
+                  )}
+                  <kbd
+                    style={{
+                      fontFamily: 'inherit',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      border: `1px solid ${colors.border}`,
+                      background: colors.bgSubtle,
+                    }}
+                  >
+                    {key}
+                  </kbd>
                 </span>
               ))}
             </span>
           </li>
         ))}
       </ul>
-    </Modal>
+    </AppModal>
   );
 }

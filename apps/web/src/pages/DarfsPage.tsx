@@ -1,9 +1,6 @@
 import { formatBRL } from '@fiscotrack/engine';
 import { DataGate } from '../components/DataGate';
-import { Icon } from '../components/Icon';
-import { Reveal } from '../components/Reveal';
-import { useToasts } from '../components/Toasts';
-import { Money, Notice, PageHeader, StatusBadge } from '../components/ui';
+import { PageHeader } from '../components/PageHeader';
 import {
   DARF_REVENUE_CODE,
   darfStatus,
@@ -15,13 +12,28 @@ import {
 } from '../domain/darf';
 import { formatDate, formatMonth, formatMonthTitle, plural } from '../domain/format';
 import { useOperations } from '../state/OperationsContext';
-import { useRunner } from '../state/useRunner';
 import { useFinance } from '../state/useFinance';
+import { useRunner } from '../state/useRunner';
+import {
+  AppAlert,
+  AppButton,
+  AppCard,
+  AppCol,
+  AppFlex,
+  AppIcon,
+  AppMoney,
+  AppRow,
+  AppStack,
+  AppStatistic,
+  AppStatus,
+  AppTable,
+  AppText,
+  useToasts,
+  type AppStatusTone,
+  type AppTableColumn,
+} from '../ui';
 
-const STATUS_VIEW: Record<
-  DarfStatus,
-  { tone: 'success' | 'danger' | 'warning' | 'info'; label: string }
-> = {
+const STATUS_VIEW: Record<DarfStatus, { tone: AppStatusTone; label: string }> = {
   paid: { tone: 'success', label: 'Pago' },
   overdue: { tone: 'danger', label: 'Vencido' },
   'due-soon': { tone: 'warning', label: 'Vence em breve' },
@@ -38,15 +50,13 @@ function dueText(entry: DarfEntry, today: string): string {
   return dueCountdown(entry.dueDate, today).text;
 }
 
-function DarfRow({ entry, today }: { readonly entry: DarfEntry; readonly today: string }) {
+function useToggleDarf() {
   const { markPaid, unmarkPaid } = useOperations();
   const toasts = useToasts();
   const run = useRunner();
-  const status = STATUS_VIEW[darfStatus(entry, today)];
-  const label = formatMonth(entry.month);
-
-  const toggle = async () => {
+  return async (entry: DarfEntry) => {
     const next = !entry.paid;
+    const label = formatMonth(entry.month);
     const ok = await run(
       () => (next ? markPaid(entry.month, entry.amountCents) : unmarkPaid(entry.month)),
       'Não foi possível atualizar o status do DARF.',
@@ -66,42 +76,53 @@ function DarfRow({ entry, today }: { readonly entry: DarfEntry; readonly today: 
       },
     );
   };
+}
 
+function EntryDetails({ entry, today }: { readonly entry: DarfEntry; readonly today: string }) {
+  const status = STATUS_VIEW[darfStatus(entry, today)];
   return (
-    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-2">
-          <span className="font-extrabold">Apuração de {formatMonthTitle(entry.month)}</span>
-          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Vencimento <span className="num">{formatDate(entry.dueDate)}</span> ·{' '}
-          {dueText(entry, today)} · código {DARF_REVENUE_CODE}
-        </p>
-        {entry.amountChanged && (
-          <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-warning">
-            <Icon name="alert" size={14} />O valor mudou desde o pagamento: confira e marque de
-            novo.
-          </p>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-4 sm:justify-end">
-        <Money cents={entry.amountCents} className="text-lg font-bold" />
-        <button
-          type="button"
-          className={`btn ${entry.paid ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={() => void toggle()}
-        >
-          <Icon name={entry.paid ? 'undo' : 'check'} size={16} />
-          {entry.paid ? 'Marcar como pendente' : 'Marcar como pago'}
-        </button>
-      </div>
-    </li>
+    <div>
+      <AppFlex gap="small" align="center" wrap>
+        <AppText strong>Apuração de {formatMonthTitle(entry.month)}</AppText>
+        <AppStatus tone={status.tone}>{status.label}</AppStatus>
+      </AppFlex>
+      <AppText type="secondary" block>
+        Vencimento{' '}
+        <AppText type="secondary" mono>
+          {formatDate(entry.dueDate)}
+        </AppText>{' '}
+        · {dueText(entry, today)} · código {DARF_REVENUE_CODE}
+      </AppText>
+      {entry.amountChanged && (
+        <AppText tone="darf" strong block>
+          <AppIcon name="alert" /> O valor mudou desde o pagamento: confira e marque de novo.
+        </AppText>
+      )}
+    </div>
+  );
+}
+
+function ToggleButton({
+  entry,
+  onToggle,
+}: {
+  readonly entry: DarfEntry;
+  readonly onToggle: (entry: DarfEntry) => void;
+}) {
+  return (
+    <AppButton
+      variant={entry.paid ? 'secondary' : 'primary'}
+      icon={entry.paid ? 'undo' : 'check'}
+      onClick={() => onToggle(entry)}
+    >
+      {entry.paid ? 'Marcar como pendente' : 'Marcar como pago'}
+    </AppButton>
   );
 }
 
 function DarfsContent() {
   const { darfs } = useFinance();
+  const toggle = useToggleDarf();
   const today = todayIso();
   const sorted = [...darfs].reverse();
   const open = darfs.filter((entry) => !entry.paid);
@@ -110,66 +131,91 @@ function DarfsContent() {
     .filter((entry) => entry.paid)
     .reduce((sum, entry) => sum + entry.amountCents, 0);
 
+  const columns: readonly AppTableColumn<DarfEntry>[] = [
+    {
+      title: 'Apuração',
+      key: 'entry',
+      render: (_, entry) => <EntryDetails entry={entry} today={today} />,
+    },
+    {
+      title: 'Valor',
+      key: 'amount',
+      align: 'right',
+      sorter: (a, b) => a.amountCents - b.amountCents,
+      render: (_, entry) => <AppMoney cents={entry.amountCents} strong size="lg" />,
+    },
+    {
+      title: <span className="sr-only">Ação</span>,
+      key: 'action',
+      align: 'right',
+      render: (_, entry) => <ToggleButton entry={entry} onToggle={(item) => void toggle(item)} />,
+    },
+  ];
+
   return (
-    <div className="space-y-4">
+    <AppStack>
       <PageHeader
         title="DARFs"
+        trail={[]}
         description="Vencimento no último dia útil do mês seguinte. O status é marcado por você; o app não consulta a Receita."
         actions={
-          <button
-            type="button"
-            className="btn btn-secondary print:hidden"
-            onClick={() => window.print()}
-          >
-            <Icon name="printer" size={16} />
+          <AppButton icon="printer" onClick={() => window.print()}>
             Imprimir resumo
-          </button>
+          </AppButton>
         }
       />
       {sorted.length === 0 ? (
-        <Notice tone="success" title="Nenhum DARF a recolher">
+        <AppAlert tone="success" title="Nenhum DARF a recolher">
           Nenhum mês apurado gerou imposto acima do mínimo. Se houver imposto abaixo de R$ 10,00,
           ele acumula para o mês seguinte.
-        </Notice>
+        </AppAlert>
       ) : (
         <>
-          <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4">
-            <Reveal index={0} className="h-full">
-              <div className="card h-full p-4 sm:p-5">
-                <p className="text-sm font-semibold text-muted">Em aberto</p>
-                <p className="mt-2 text-lg font-bold sm:text-2xl">
-                  <Money cents={openTotal} />
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {plural(open.length, 'DARF pendente', 'DARFs pendentes')}
-                </p>
-              </div>
-            </Reveal>
-            <Reveal index={1} className="h-full">
-              <div className="card h-full p-4 sm:p-5">
-                <p className="text-sm font-semibold text-muted">Já pago</p>
-                <p className="mt-2 text-lg font-bold sm:text-2xl">
-                  <Money cents={paidTotal} />
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {plural(darfs.length - open.length, 'DARF pago', 'DARFs pagos')} ·{' '}
-                  {formatBRL(paidTotal)}
-                </p>
-              </div>
-            </Reveal>
-          </div>
-          <Reveal index={2}>
-            <section aria-label="Lista de DARFs" className="card overflow-hidden">
-              <ul className="divide-y divide-line-soft">
-                {sorted.map((entry) => (
-                  <DarfRow key={entry.month} entry={entry} today={today} />
-                ))}
-              </ul>
-            </section>
-          </Reveal>
+          <AppRow>
+            <AppCol xs={12}>
+              <AppCard fullHeight>
+                <AppStatistic
+                  title="Em aberto"
+                  value={openTotal}
+                  format={formatBRL}
+                  tone={open.length > 0 ? 'darf' : 'default'}
+                  hint={plural(open.length, 'DARF pendente', 'DARFs pendentes')}
+                />
+              </AppCard>
+            </AppCol>
+            <AppCol xs={12}>
+              <AppCard fullHeight>
+                <AppStatistic
+                  title="Já pago"
+                  value={paidTotal}
+                  format={formatBRL}
+                  hint={plural(darfs.length - open.length, 'DARF pago', 'DARFs pagos')}
+                />
+              </AppCard>
+            </AppCol>
+          </AppRow>
+          <section aria-label="Lista de DARFs">
+            <AppCard padding="none">
+              <AppTable
+                ariaLabel="Lista de DARFs"
+                columns={columns}
+                data={sorted}
+                rowKey={(entry) => entry.month}
+                renderCard={(entry) => (
+                  <AppStack gap="small">
+                    <EntryDetails entry={entry} today={today} />
+                    <AppFlex justify="space-between" align="center" gap="small" wrap>
+                      <AppMoney cents={entry.amountCents} strong size="lg" />
+                      <ToggleButton entry={entry} onToggle={(item) => void toggle(item)} />
+                    </AppFlex>
+                  </AppStack>
+                )}
+              />
+            </AppCard>
+          </section>
         </>
       )}
-    </div>
+    </AppStack>
   );
 }
 

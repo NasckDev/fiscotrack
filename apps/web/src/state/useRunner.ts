@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useToasts } from '../components/Toasts';
+import { useToasts } from '../ui';
 import { describeStorageError } from '../domain/errors';
 
 /** Executa uma gravação e, se falhar, mostra um aviso com o que fazer. Devolve se deu certo. */

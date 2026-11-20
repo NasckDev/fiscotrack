@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router';
 import { AppShell } from './components/AppShell';
 import { RouteErrorBoundary } from './components/ErrorBoundary';
-import { SkeletonBlock } from './components/ui';
+import { AppSkeleton } from './ui';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const PortfolioPage = lazy(() =>
@@ -23,16 +23,7 @@ const SettingsPage = lazy(() =>
 );
 
 function RouteFallback() {
-  return (
-    <div role="status" aria-live="polite">
-      <span className="sr-only">Carregando…</span>
-      <div className="space-y-4" aria-hidden="true">
-        <SkeletonBlock className="h-10 w-56" />
-        <SkeletonBlock className="h-40" />
-        <SkeletonBlock className="h-72" />
-      </div>
-    </div>
-  );
+  return <AppSkeleton variant="text" rows={6} label="Carregando…" />;
 }
 
 export function App() {

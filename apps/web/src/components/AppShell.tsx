@@ -1,32 +1,41 @@
-import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { NAV_ITEMS, TAB_ITEMS } from '../navigation';
 import { DB_ISSUE_EVENT } from '../storage/operationsRepository';
-import { ExampleBanner, FirstVisitLoader } from './ExampleBanner';
-import { MobileMenu } from './MobileMenu';
-import { useToasts } from './Toasts';
+import {
+  AppAvatar,
+  AppButton,
+  AppContainer,
+  AppDivider,
+  AppDrawer,
+  AppDropdown,
+  AppIconButton,
+  AppLayout,
+  AppLayoutContent,
+  AppLayoutHeader,
+  AppLayoutSider,
+  AppMenu,
+  AppStack,
+  AppTabBar,
+  AppText,
+  setTheme,
+  useAppColors,
+  useBreakpoints,
+  useTheme,
+  useToasts,
+  type AppMenuItem,
+} from '../ui';
 import { CommandPalette } from './CommandPalette';
 import { Disclaimer } from './Disclaimer';
-import { Icon } from './Icon';
+import { ExampleBanner, FirstVisitLoader } from './ExampleBanner';
 import { Logo, LogoMark } from './Logo';
+import { Notifications } from './Notifications';
 import { ShortcutsModal } from './ShortcutsModal';
-import { ThemeToggle } from './ThemeToggle';
 
 const REPOSITORY_URL = 'https://github.com/NasckDev/fiscotrack';
 const GO_SEQUENCE_MS = 1200;
-
-const sidebarLinkClass = ({ isActive }: { isActive: boolean }) =>
-  [
-    'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors',
-    isActive ? 'bg-accent-surface text-accent' : 'text-muted hover:bg-card-subtle hover:text-ink',
-  ].join(' ');
-
-const tabLinkClass = ({ isActive }: { isActive: boolean }) =>
-  [
-    'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-semibold transition-colors',
-    isActive ? 'text-accent' : 'text-muted',
-  ].join(' ');
+const SIDER_WIDTH = 256;
+const SIDER_COLLAPSED_WIDTH = 80;
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -38,119 +47,137 @@ interface ShellActions {
   readonly openShortcuts: () => void;
 }
 
-function SearchButton({ openPalette }: Pick<ShellActions, 'openPalette'>) {
-  return (
-    <button
-      type="button"
-      onClick={openPalette}
-      className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-line-soft bg-card px-3 text-sm text-muted transition-colors hover:border-line"
-    >
-      <Icon name="search" size={16} />
-      <span className="flex-1 text-left">Buscar…</span>
-      <kbd className="kbd">Ctrl K</kbd>
-    </button>
-  );
+/** Item de menu ativo: `/carteira/PETR4` destaca "Carteira". */
+function activeKey(pathname: string): string {
+  const match = NAV_ITEMS.filter((item) => item.to !== '/' && pathname.startsWith(item.to));
+  return match[0]?.to ?? (pathname === '/' ? '/' : '');
 }
 
-function Sidebar({ openPalette, openShortcuts }: ShellActions) {
+function useNavMenuItems(afterSelect?: () => void): readonly AppMenuItem[] {
+  const navigate = useNavigate();
+  return NAV_ITEMS.map((item) => ({
+    key: item.to,
+    label: item.label,
+    icon: item.icon,
+    onSelect: () => {
+      void navigate(item.to);
+      afterSelect?.();
+    },
+  }));
+}
+
+function SiderContent({ collapsed }: { readonly collapsed: boolean }) {
+  const { pathname } = useLocation();
+  const colors = useAppColors();
+  const items = useNavMenuItems();
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--ft-sidebar-width)] flex-col border-r border-line-soft bg-nav px-3 py-5 lg:flex">
-      <div className="px-3 pb-5">
-        <Logo />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 12px' }}>
+      <div style={{ padding: '0 8px 20px' }}>
+        <Logo onDark compact={collapsed} />
       </div>
-      <div className="pb-4">
-        <SearchButton openPalette={openPalette} />
-      </div>
-      <nav aria-label="Principal" className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => (
-          <NavLink key={item.to} to={item.to} end={item.to === '/'} className={sidebarLinkClass}>
-            <Icon name={item.icon} />
-            {item.label}
-          </NavLink>
-        ))}
+      <nav aria-label="Principal">
+        <AppMenu
+          items={items}
+          selectedKey={activeKey(pathname)}
+          theme="dark"
+          collapsed={collapsed}
+        />
       </nav>
-      <div className="mt-auto flex flex-col gap-3 px-1">
-        <div className="card-subtle p-3 text-xs text-muted">
-          <p className="flex items-center gap-1.5 font-bold text-ink">
-            <Icon name="shield" size={14} />
-            Dados só no navegador
-          </p>
-          <p className="mt-1">Nada é enviado a servidores; sem contas nem telemetria.</p>
-        </div>
-        <div className="flex items-center justify-between">
-          <a
-            href={REPOSITORY_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center rounded-lg px-2 text-xs text-muted hover:text-ink"
-          >
-            Código no GitHub
-          </a>
-          <span className="flex">
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Atalhos de teclado"
-              onClick={openShortcuts}
-            >
-              <Icon name="keyboard" />
-            </button>
-            <ThemeToggle />
-          </span>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function MobileHeader({
-  openPalette,
-  openMenu,
-}: Pick<ShellActions, 'openPalette'> & { readonly openMenu: () => void }) {
-  return (
-    <header className="glass sticky top-0 z-30 flex h-[var(--ft-header-height)] items-center justify-between border-b border-line-soft px-4 lg:hidden">
-      <span className="flex items-center gap-2.5">
-        <LogoMark size={28} />
-        <span className="text-base font-extrabold tracking-tight">
-          Fisco<span className="text-accent">Track</span>
-        </span>
-      </span>
-      <span className="flex">
-        <button type="button" className="icon-btn" aria-label="Buscar" onClick={openPalette}>
-          <Icon name="search" />
-        </button>
-        <ThemeToggle />
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Menu: importar, regras e configurações"
-          aria-haspopup="dialog"
-          onClick={openMenu}
+      {!collapsed && (
+        <div
+          style={{
+            marginTop: 'auto',
+            padding: 14,
+            borderRadius: 14,
+            background: colors.siderSelectedBg,
+            color: colors.siderText,
+            fontSize: 13,
+          }}
         >
-          <Icon name="settings" />
-        </button>
-      </span>
-    </header>
+          <strong style={{ color: colors.siderSelectedText }}>Dados só no navegador</strong>
+          <div style={{ marginTop: 4 }}>
+            Nada é enviado a servidores; sem contas nem telemetria.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function TabBar() {
+function HeaderSearch({
+  openPalette,
+  wide,
+}: Pick<ShellActions, 'openPalette'> & { readonly wide: boolean }) {
+  if (!wide) return <AppIconButton icon="search" label="Buscar" onClick={openPalette} />;
   return (
-    <nav
-      aria-label="Principal"
-      className="glass fixed inset-x-0 bottom-0 z-30 flex border-t border-line-soft pb-[env(safe-area-inset-bottom)] lg:hidden"
-    >
-      {TAB_ITEMS.map((item) => (
-        <NavLink key={item.to} to={item.to} end={item.to === '/'} className={tabLinkClass}>
-          <Icon name={item.icon} size={22} />
-          {item.shortLabel}
-        </NavLink>
-      ))}
-    </nav>
+    <AppButton icon="search" onClick={openPalette} aria-label="Buscar telas, ações e ativos">
+      <span style={{ display: 'inline-flex', gap: 24, color: 'inherit' }}>
+        <span>Buscar…</span>
+        <kbd style={{ fontFamily: 'inherit', fontSize: 12 }}>Ctrl K</kbd>
+      </span>
+    </AppButton>
   );
 }
 
-/** Rola ao topo quando a rota muda, como em um app de verdade. */
+function AccountMenu({ openShortcuts }: Pick<ShellActions, 'openShortcuts'>) {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const items: readonly AppMenuItem[] = [
+    {
+      key: 'config',
+      label: 'Configurações e backup',
+      icon: 'settings',
+      onSelect: () => void navigate('/config'),
+    },
+    {
+      key: 'import',
+      label: 'Importar CSV',
+      icon: 'upload',
+      onSelect: () => void navigate('/importar'),
+    },
+    {
+      key: 'rules',
+      label: 'Regras e premissas',
+      icon: 'rules',
+      onSelect: () => void navigate('/regras'),
+    },
+    {
+      key: 'keys',
+      label: 'Atalhos de teclado',
+      icon: 'help',
+      onSelect: openShortcuts,
+      dividerBefore: true,
+    },
+    {
+      key: 'github',
+      label: 'Código no GitHub',
+      icon: 'github',
+      onSelect: () => window.open(REPOSITORY_URL, '_blank', 'noopener,noreferrer'),
+    },
+  ];
+  return (
+    <AppDropdown items={items}>
+      <button
+        type="button"
+        aria-label={`Menu da conta (tema ${theme === 'dark' ? 'escuro' : 'claro'})`}
+        aria-haspopup="menu"
+        style={{
+          all: 'unset',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          minWidth: 44,
+          minHeight: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <AppAvatar initials="VC" label="Você" />
+      </button>
+    </AppDropdown>
+  );
+}
+
+/** Rola ao topo quando a rota muda. */
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -173,7 +200,7 @@ function useGlobalShortcuts({ openPalette, openShortcuts }: ShellActions) {
         return;
       }
       if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return;
-      if (document.querySelector('dialog[open]')) return;
+      if (document.querySelector('[role="dialog"]')) return;
       const key = event.key.toLowerCase();
       if (goPending.current) {
         goPending.current = false;
@@ -199,13 +226,49 @@ function useGlobalShortcuts({ openPalette, openShortcuts }: ShellActions) {
   }, [navigate, openPalette, openShortcuts]);
 }
 
-export function AppShell({ children }: { readonly children: ReactNode }) {
+function MobileNavDrawer({
+  open,
+  onClose,
+}: {
+  readonly open: boolean;
+  readonly onClose: () => void;
+}) {
   const { pathname } = useLocation();
-  const reduceMotion = useReducedMotion() ?? false;
+  const navigate = useNavigate();
+  const items: readonly AppMenuItem[] = [
+    ...useNavMenuItems(onClose),
+    {
+      key: '/importar',
+      label: 'Importar CSV',
+      icon: 'upload',
+      dividerBefore: true,
+      onSelect: () => {
+        void navigate('/importar');
+        onClose();
+      },
+    },
+  ];
+  return (
+    <AppDrawer open={open} title="Menu" onClose={onClose} placement="left" size="sm">
+      <nav aria-label="Menu completo">
+        <AppMenu items={items} selectedKey={activeKey(pathname)} />
+      </nav>
+    </AppDrawer>
+  );
+}
+
+export function AppShell({ children }: { readonly children: ReactNode }) {
+  const screens = useBreakpoints();
+  const isDesktop = Boolean(screens.lg);
+  const isPhone = !screens.md;
+  const colors = useAppColors();
+  const theme = useTheme();
+  const toasts = useToasts();
+  const [collapsed, setCollapsed] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const toasts = useToasts();
+
   useEffect(() => {
     const handler = (event: Event) => {
       toasts.show(String((event as CustomEvent<string>).detail), { tone: 'danger' });
@@ -213,6 +276,7 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
     window.addEventListener(DB_ISSUE_EVENT, handler);
     return () => window.removeEventListener(DB_ISSUE_EVENT, handler);
   }, [toasts]);
+
   const openPalette = useCallback(() => setIsPaletteOpen(true), []);
   const openShortcuts = useCallback(() => {
     setIsPaletteOpen(false);
@@ -221,46 +285,117 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
   useGlobalShortcuts({ openPalette, openShortcuts });
 
   return (
-    <div className="min-h-screen">
+    <AppLayout style={{ minHeight: '100vh' }}>
       <a href="#conteudo" className="skip-link">
         Pular para o conteúdo
       </a>
       <ScrollToTop />
-      <Sidebar openPalette={openPalette} openShortcuts={openShortcuts} />
-      <MobileHeader openPalette={openPalette} openMenu={() => setIsMenuOpen(true)} />
-      <div className="flex min-h-[calc(100vh-var(--ft-header-height))] flex-col lg:min-h-screen lg:pl-[var(--ft-sidebar-width)]">
-        <Disclaimer />
+      {isDesktop && (
+        <AppLayoutSider
+          width={SIDER_WIDTH}
+          collapsedWidth={SIDER_COLLAPSED_WIDTH}
+          collapsed={collapsed}
+          trigger={null}
+          style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'auto' }}
+        >
+          <SiderContent collapsed={collapsed} />
+        </AppLayoutSider>
+      )}
+      <AppLayout>
+        <AppLayoutHeader
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: isPhone ? '0 12px' : '0 24px',
+            borderBottom: `1px solid ${colors.borderSoft}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isDesktop ? (
+              <AppIconButton
+                icon="menu"
+                label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+                aria-pressed={collapsed}
+                onClick={() => setCollapsed((value) => !value)}
+              />
+            ) : (
+              <>
+                <AppIconButton
+                  icon="menu"
+                  label="Abrir menu"
+                  aria-haspopup="dialog"
+                  onClick={() => setIsMenuOpen(true)}
+                />
+                <LogoMark size={30} />
+              </>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <HeaderSearch openPalette={openPalette} wide={isDesktop} />
+            <Notifications />
+            <AppIconButton
+              icon={theme === 'dark' ? 'sun' : 'moon'}
+              label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            />
+            <AccountMenu openShortcuts={openShortcuts} />
+          </div>
+        </AppLayoutHeader>
         <FirstVisitLoader />
-        <ExampleBanner />
-        <main
+        <AppLayoutContent
           id="conteudo"
           tabIndex={-1}
-          className="mx-auto w-full max-w-[var(--ft-content-max)] flex-1 px-4 pt-5 outline-none sm:px-6 lg:px-10 lg:pt-8 lg:pb-12"
+          style={{
+            outline: 'none',
+            paddingBottom: isPhone ? 'calc(72px + env(safe-area-inset-bottom))' : 0,
+          }}
         >
-          <motion.div
-            key={pathname}
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
-          >
+          <AppContainer>
+            <AppStack gap="small">
+              <Disclaimer />
+              <ExampleBanner />
+            </AppStack>
+            <div style={{ height: 16 }} />
             {children}
-          </motion.div>
-        </main>
-        <footer className="px-4 pt-6 pb-[calc(var(--ft-tabbar-height)+env(safe-area-inset-bottom)+1rem)] text-center text-xs text-muted lg:hidden">
-          Projeto open source educacional · MIT ·{' '}
-          <a href={REPOSITORY_URL} className="link inline-flex min-h-11 items-center">
-            GitHub
-          </a>
-        </footer>
-      </div>
-      <TabBar />
+          </AppContainer>
+          <footer style={{ textAlign: 'center', padding: '0 16px 24px' }}>
+            <AppDivider />
+            <AppText type="secondary" size="sm">
+              Projeto open source educacional · MIT ·{' '}
+            </AppText>
+            <a
+              href={REPOSITORY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: colors.primary, textDecoration: 'underline' }}
+            >
+              GitHub
+            </a>
+          </footer>
+        </AppLayoutContent>
+      </AppLayout>
+      {isPhone && (
+        <AppTabBar
+          aria-label="Principal"
+          items={TAB_ITEMS.map((item) => ({
+            to: item.to,
+            label: item.shortLabel,
+            icon: item.icon,
+          }))}
+        />
+      )}
+      <MobileNavDrawer open={isMenuOpen && !isDesktop} onClose={() => setIsMenuOpen(false)} />
       <CommandPalette
         open={isPaletteOpen}
         onClose={() => setIsPaletteOpen(false)}
         onShowShortcuts={openShortcuts}
       />
       <ShortcutsModal open={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
-      <MobileMenu open={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
-    </div>
+    </AppLayout>
   );
 }

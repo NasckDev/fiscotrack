@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { toPaidMarks } from '../domain/darf';
 import { describeStorageError } from '../domain/errors';
 import { useOperations } from '../state/OperationsContext';
-import { markVisited, hasVisited } from '../state/firstVisit';
+import { hasVisited, markVisited } from '../state/firstVisit';
 import { EXAMPLE_ID_PREFIX, useExampleLoader } from '../state/useExampleLoader';
-import { ConfirmDialog } from './ConfirmDialog';
-import { Icon } from './Icon';
-import { useToasts } from './Toasts';
+import { AppAlert, AppButton, AppConfirm, useToasts } from '../ui';
 
 /**
  * Na primeira visita com o banco vazio, carrega o exemplo sozinho (uma vez). Quem apagou os dados
@@ -32,7 +30,7 @@ export function FirstVisitLoader() {
   return null;
 }
 
-/** Selo fixo "Dados de exemplo" com a saída para começar com os próprios dados. */
+/** Selo "Dados de exemplo" com a saída para começar com os próprios dados. */
 export function ExampleBanner() {
   const { operations, paid, clear, removeMany, merge } = useOperations();
   const toasts = useToasts();
@@ -59,25 +57,14 @@ export function ExampleBanner() {
 
   return (
     <>
-      <div
-        role="region"
-        aria-label="Dados de exemplo"
-        className="flex items-center gap-x-3 border-b border-line-soft bg-warning-surface px-4 py-0.5 text-xs text-ink sm:px-6 lg:px-10"
-      >
-        <span className="flex items-center gap-1.5 font-bold">
-          <Icon name="sparkles" size={14} />
-          Dados de exemplo
-        </span>
-        <span className="hidden text-muted sm:inline">fictícios, só para você explorar</span>
-        <button
-          type="button"
-          className="-my-1 ml-auto inline-flex min-h-11 items-center font-bold text-accent underline underline-offset-2"
-          onClick={() => setIsConfirming(true)}
-        >
-          Começar com meus dados
-        </button>
-      </div>
-      <ConfirmDialog
+      <section aria-label="Dados de exemplo">
+        <AppAlert tone="warning" title="Dados de exemplo (fictícios)">
+          <AppButton size="sm" onClick={() => setIsConfirming(true)}>
+            Começar com meus dados
+          </AppButton>
+        </AppAlert>
+      </section>
+      <AppConfirm
         open={isConfirming}
         title="Começar com seus dados?"
         message="As operações de exemplo serão removidas deste navegador. Você poderá desfazer logo em seguida."

@@ -1,10 +1,10 @@
-import type { IconName } from './components/Icon';
+import type { AppIconName } from './ui';
 
 export interface NavItem {
   readonly to: string;
   readonly label: string;
   readonly shortLabel: string;
-  readonly icon: IconName;
+  readonly icon: AppIconName;
   /** Tecla após "g" para ir direto à tela. */
   readonly goKey: string;
 }

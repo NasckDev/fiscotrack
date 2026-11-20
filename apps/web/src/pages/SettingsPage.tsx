@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DataGate } from '../components/DataGate';
-import { Icon, type IconName } from '../components/Icon';
-import { useToasts } from '../components/Toasts';
-import { Notice, PageHeader } from '../components/ui';
+import { PageHeader } from '../components/PageHeader';
 import { parseBackup, serializeBackup, type BackupData } from '../domain/backup';
 import { toPaidMarks } from '../domain/darf';
 import { plural } from '../domain/format';
@@ -12,7 +9,25 @@ import { getLastBackup, markBackupDone } from '../state/backupMemory';
 import { useOperations } from '../state/OperationsContext';
 import { useExampleLoader } from '../state/useExampleLoader';
 import { useRunner } from '../state/useRunner';
-import { setTheme, useTheme, type Theme } from '../theme';
+import {
+  AppAlert,
+  AppButton,
+  AppCard,
+  AppConfirm,
+  AppFlex,
+  AppIcon,
+  AppProgress,
+  AppSegmented,
+  AppStack,
+  AppText,
+  AppTitle,
+  setTheme,
+  useAppColors,
+  useTheme,
+  useToasts,
+  type AppIconName,
+  type Theme,
+} from '../ui';
 
 function Section({
   icon,
@@ -20,55 +35,59 @@ function Section({
   description,
   children,
 }: {
-  icon: IconName;
-  title: string;
-  description: string;
-  children: ReactNode;
+  readonly icon: AppIconName;
+  readonly title: string;
+  readonly description: string;
+  readonly children: ReactNode;
 }) {
+  const colors = useAppColors();
   return (
-    <section className="card p-5" aria-label={title}>
-      <div className="flex items-start gap-3">
-        <span className="flex size-9 flex-none items-center justify-center rounded-xl bg-accent-surface text-accent">
-          <Icon name={icon} size={18} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-bold">{title}</h2>
-          <p className="mt-0.5 text-sm text-muted">{description}</p>
-          <div className="mt-4">{children}</div>
-        </div>
-      </div>
+    <section aria-label={title}>
+      <AppCard padding="lg">
+        <AppFlex gap="middle" align="flex-start">
+          <span
+            aria-hidden="true"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              flex: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+              background: colors.primarySurface,
+              color: colors.primary,
+            }}
+          >
+            <AppIcon name={icon} />
+          </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <AppTitle level={2}>{title}</AppTitle>
+            <AppText type="secondary" block>
+              {description}
+            </AppText>
+            <div style={{ marginTop: 16 }}>{children}</div>
+          </div>
+        </AppFlex>
+      </AppCard>
     </section>
   );
 }
-
-const THEMES: readonly { value: Theme; label: string; icon: IconName }[] = [
-  { value: 'light', label: 'Claro', icon: 'sun' },
-  { value: 'dark', label: 'Escuro', icon: 'moon' },
-];
 
 function ThemeSection() {
   const theme = useTheme();
   return (
     <Section icon="sun" title="Aparência" description="O tema é lembrado neste navegador.">
-      <div
-        role="radiogroup"
+      <AppSegmented<Theme>
         aria-label="Tema"
-        className="inline-flex rounded-xl border border-line-soft bg-card-subtle p-1"
-      >
-        {THEMES.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={theme === option.value}
-            onClick={() => setTheme(option.value)}
-            className={`btn min-h-11 ${theme === option.value ? 'btn-primary' : 'btn-ghost'}`}
-          >
-            <Icon name={option.icon} size={16} />
-            {option.label}
-          </button>
-        ))}
-      </div>
+        value={theme}
+        onChange={setTheme}
+        options={[
+          { value: 'light', label: 'Claro', icon: 'sun' },
+          { value: 'dark', label: 'Escuro', icon: 'moon' },
+        ]}
+      />
     </Section>
   );
 }
@@ -137,42 +156,36 @@ function BackupSection() {
       title="Backup dos dados"
       description="Exporte tudo em um arquivo JSON e restaure em outro navegador. Restaurar substitui os dados atuais."
     >
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <button type="button" className="btn btn-secondary" onClick={exportBackup}>
-          <Icon name="download" size={16} />
-          Exportar backup
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => inputRef.current?.click()}
-        >
-          <Icon name="upload" size={16} />
-          Restaurar backup
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="application/json,.json"
-          className="sr-only"
-          tabIndex={-1}
-          aria-label="Arquivo de backup"
-          onChange={(event) => void chooseFile(event)}
-        />
-      </div>
-      <p className="mt-3 text-xs text-muted">
-        {lastBackup === null
-          ? 'Você ainda não exportou um backup neste navegador.'
-          : `Último backup: ${lastBackup.toLocaleDateString('pt-BR')}.`}
-      </p>
-      {error !== null && (
-        <div className="mt-3">
-          <Notice tone="danger" role="alert" title="Não foi possível restaurar">
+      <AppStack>
+        <AppFlex gap="small" wrap>
+          <AppButton icon="download" onClick={exportBackup}>
+            Exportar backup
+          </AppButton>
+          <AppButton icon="upload" onClick={() => inputRef.current?.click()}>
+            Restaurar backup
+          </AppButton>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            tabIndex={-1}
+            aria-label="Arquivo de backup"
+            onChange={(event) => void chooseFile(event)}
+          />
+        </AppFlex>
+        <AppText type="secondary" size="sm">
+          {lastBackup === null
+            ? 'Você ainda não exportou um backup neste navegador.'
+            : `Último backup: ${lastBackup.toLocaleDateString('pt-BR')}.`}
+        </AppText>
+        {error !== null && (
+          <AppAlert tone="error" role="alert" title="Não foi possível restaurar">
             {error}
-          </Notice>
-        </div>
-      )}
-      <ConfirmDialog
+          </AppAlert>
+        )}
+      </AppStack>
+      <AppConfirm
         open={pending !== null}
         title="Restaurar este backup?"
         message={`Isto substitui ${plural(operations.length, 'operação', 'operações')} deste navegador por ${plural(pending?.operations.length ?? 0, 'operação', 'operações')} do arquivo. Você poderá desfazer logo em seguida.`}
@@ -205,11 +218,19 @@ function StorageUsage() {
     };
   }, []);
   if (usage === null) return null;
+  const percent = usage.quota === 0 ? 0 : (usage.used / usage.quota) * 100;
   return (
-    <p className="mt-3 text-xs text-muted">
-      Espaço usado pelo app neste navegador: {formatMegabytes(usage.used)} de{' '}
-      {formatMegabytes(usage.quota)} disponíveis.
-    </p>
+    <div>
+      <AppProgress
+        percent={Math.max(percent, 1)}
+        label="Espaço de armazenamento usado"
+        valueText={`${formatMegabytes(usage.used)} de ${formatMegabytes(usage.quota)}`}
+      />
+      <AppText type="secondary" size="sm">
+        Espaço usado pelo app neste navegador: {formatMegabytes(usage.used)} de{' '}
+        {formatMegabytes(usage.quota)} disponíveis.
+      </AppText>
+    </div>
   );
 }
 
@@ -235,41 +256,40 @@ function DataSection() {
 
   return (
     <Section
-      icon="trash"
+      icon="shield"
       title="Seus dados"
       description="Tudo fica no IndexedDB deste navegador. Nada é enviado a servidores, e não há contas nem telemetria."
     >
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          disabled={isWorking}
-          onClick={() =>
-            void load().then((ok) =>
-              toasts.show(
-                ok
-                  ? 'Exemplo carregado. Todos os dados são fictícios.'
-                  : 'Não foi possível carregar o exemplo. Tente de novo.',
-                ok ? {} : { tone: 'danger' },
-              ),
-            )
-          }
-        >
-          <Icon name="sparkles" size={16} />
-          Carregar dados de exemplo
-        </button>
-        <button
-          type="button"
-          className="btn btn-danger"
-          disabled={operations.length === 0}
-          onClick={() => setIsConfirming(true)}
-        >
-          <Icon name="trash" size={16} />
-          Apagar todos os dados
-        </button>
-      </div>
-      <StorageUsage />
-      <ConfirmDialog
+      <AppStack>
+        <AppFlex gap="small" wrap>
+          <AppButton
+            icon="sparkles"
+            loading={isWorking}
+            onClick={() =>
+              void load().then((ok) =>
+                toasts.show(
+                  ok
+                    ? 'Exemplo carregado. Todos os dados são fictícios.'
+                    : 'Não foi possível carregar o exemplo. Tente de novo.',
+                  ok ? {} : { tone: 'danger' },
+                ),
+              )
+            }
+          >
+            Carregar dados de exemplo
+          </AppButton>
+          <AppButton
+            danger
+            icon="trash"
+            disabled={operations.length === 0}
+            onClick={() => setIsConfirming(true)}
+          >
+            Apagar todos os dados
+          </AppButton>
+        </AppFlex>
+        <StorageUsage />
+      </AppStack>
+      <AppConfirm
         open={isConfirming}
         title="Apagar todos os dados?"
         message="Operações e DARFs marcados como pagos serão removidos deste navegador. Você pode desfazer logo em seguida; para guardá-los de verdade, exporte um backup antes."
@@ -284,16 +304,20 @@ function DataSection() {
 export function SettingsPage() {
   return (
     <DataGate allowEmpty>
-      <div className="space-y-4">
-        <PageHeader title="Configurações" description="Aparência, backup e privacidade." />
+      <AppStack>
+        <PageHeader
+          title="Configurações"
+          trail={[]}
+          description="Aparência, backup e privacidade."
+        />
         <ThemeSection />
         <BackupSection />
         <DataSection />
-        <p className="flex items-center gap-2 text-xs text-muted">
-          <Icon name="shield" size={14} />
-          Projeto educacional com dados fictícios no exemplo. Não substitui consultoria fiscal.
-        </p>
-      </div>
+        <AppText type="secondary" size="sm">
+          <AppIcon name="shield" /> Projeto educacional com dados fictícios no exemplo. Não
+          substitui consultoria fiscal.
+        </AppText>
+      </AppStack>
     </DataGate>
   );
 }

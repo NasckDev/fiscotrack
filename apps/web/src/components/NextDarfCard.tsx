@@ -1,73 +1,132 @@
+import { formatBRL } from '@fiscotrack/engine';
 import { Link } from 'react-router';
 import { dueCountdown, nextDarf, todayIso, type DarfEntry } from '../domain/darf';
-import { formatBRL } from '@fiscotrack/engine';
 import { formatDate, formatMonth } from '../domain/format';
-import { AnimatedNumber } from './AnimatedNumber';
-import { Icon } from './Icon';
+import { AppButton, AppCard, AppFlex, AppIcon, MONO_STYLE, useAppColors } from '../ui';
+import { useCountUp } from '../ui/useCountUp';
 
 interface NextDarfCardProps {
   readonly darfs: readonly DarfEntry[];
   readonly onMarkPaid: (entry: DarfEntry) => void;
 }
 
+function Eyebrow({ children }: { readonly children: React.ReactNode }) {
+  const colors = useAppColors();
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        fontWeight: 600,
+        color: colors.heroMuted,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Amount({ cents }: { readonly cents: number }) {
+  const colors = useAppColors();
+  const shown = useCountUp(cents, true);
+  return (
+    <div
+      style={{
+        ...MONO_STYLE,
+        fontSize: 'clamp(2rem, 6vw, 3rem)',
+        fontWeight: 800,
+        letterSpacing: '-0.02em',
+        color: colors.darfFill,
+        lineHeight: 1.15,
+      }}
+    >
+      {formatBRL(shown)}
+    </div>
+  );
+}
+
 /** Destaque do início: o próximo DARF em aberto, com contagem até o vencimento. */
 export function NextDarfCard({ darfs, onMarkPaid }: NextDarfCardProps) {
+  const colors = useAppColors();
   const entry = nextDarf(darfs);
 
   if (entry === null) {
     return (
-      <section
-        aria-label="Próximo DARF"
-        className="hero flex h-full flex-col justify-between p-5 sm:p-6"
-      >
-        <p className="flex items-center gap-2 text-sm font-semibold text-hero-muted">
-          <Icon name="check-circle" size={18} />
-          Próximo DARF
-        </p>
-        <p className="mt-4 text-3xl font-extrabold tracking-tight">Nada a pagar agora</p>
-        <p className="mt-1 text-sm text-hero-muted">
-          {darfs.length === 0
-            ? 'Nenhum mês apurado gerou imposto a recolher.'
-            : 'Todos os DARFs apurados estão marcados como pagos.'}
-        </p>
-        <Link to="/darfs" className="btn btn-hero mt-5 w-fit">
-          Ver DARFs
-        </Link>
-      </section>
+      <AppCard tone="hero" fullHeight padding="lg" aria-label="Próximo DARF" role="region">
+        <AppFlex vertical gap="small">
+          <Eyebrow>
+            <AppIcon name="check-circle" /> Próximo DARF
+          </Eyebrow>
+          <div style={{ fontSize: 28, fontWeight: 800, color: colors.heroText }}>
+            Nada a pagar agora
+          </div>
+          <div style={{ color: colors.heroMuted }}>
+            {darfs.length === 0
+              ? 'Nenhum mês apurado gerou imposto a recolher.'
+              : 'Todos os DARFs apurados estão marcados como pagos.'}
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <AppButton to="/darfs">Ver DARFs</AppButton>
+          </div>
+        </AppFlex>
+      </AppCard>
     );
   }
 
   const { text, urgent } = dueCountdown(entry.dueDate, todayIso());
   return (
-    <section
-      aria-label="Próximo DARF"
-      className="hero flex h-full flex-col justify-between p-5 sm:p-6"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-semibold text-hero-muted">
-          <Icon name="receipt" size={18} />
-          Próximo DARF · apuração de {formatMonth(entry.month)}
-        </p>
-        <span className={`hero-pill ${urgent ? 'hero-pill-urgent' : ''}`}>
-          <Icon name="clock" size={14} />
-          {text}
-        </span>
-      </div>
-      <p className="num mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">
-        <AnimatedNumber value={entry.amountCents} format={formatBRL} />
-      </p>
-      <p className="mt-1 text-sm text-hero-muted">
-        Vencimento em {formatDate(entry.dueDate)} · código de receita 6015
-      </p>
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button type="button" className="btn btn-hero" onClick={() => onMarkPaid(entry)}>
-          <Icon name="check" size={16} />
-          Marcar como pago
-        </button>
-        <Link to="/darfs" className="btn btn-hero-ghost">
-          Ver todos os DARFs
-        </Link>
-      </div>
-    </section>
+    <AppCard tone="hero" fullHeight padding="lg" aria-label="Próximo DARF" role="region">
+      <AppFlex vertical gap="small">
+        <AppFlex justify="space-between" align="center" gap="small" wrap>
+          <Eyebrow>
+            <AppIcon name="receipt" /> Próximo DARF · apuração de {formatMonth(entry.month)}
+          </Eyebrow>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 12px',
+              borderRadius: 999,
+              fontWeight: 700,
+              fontSize: 13,
+              background: urgent ? colors.darfFill : 'rgb(255 255 255 / 0.14)',
+              color: urgent ? '#1f1500' : colors.heroText,
+            }}
+          >
+            <AppIcon name="clock" /> {text}
+          </span>
+        </AppFlex>
+        <Amount cents={entry.amountCents} />
+        <div style={{ color: colors.heroMuted }}>
+          Vencimento em <span style={MONO_STYLE}>{formatDate(entry.dueDate)}</span> · código de
+          receita 6015
+        </div>
+        <AppFlex gap="small" wrap>
+          <div style={{ marginTop: 12 }}>
+            <AppButton icon="check" onClick={() => onMarkPaid(entry)}>
+              Marcar como pago
+            </AppButton>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Link
+              to="/darfs"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: 40,
+                color: colors.heroText,
+                fontWeight: 600,
+                textDecoration: 'underline',
+                textUnderlineOffset: 4,
+              }}
+            >
+              Ver todos os DARFs
+            </Link>
+          </div>
+        </AppFlex>
+      </AppFlex>
+    </AppCard>
   );
 }

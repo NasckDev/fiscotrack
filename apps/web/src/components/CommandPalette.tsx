@@ -1,16 +1,23 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { NAV_ITEMS } from '../navigation';
-import { setTheme, useTheme } from '../theme';
 import { useFinance } from '../state/useFinance';
-import { Icon, type IconName } from './Icon';
-import { Modal } from './Modal';
+import {
+  AppIcon,
+  AppInput,
+  AppModal,
+  AppText,
+  setTheme,
+  useAppColors,
+  useTheme,
+  type AppIconName,
+} from '../ui';
 
 interface Command {
   readonly id: string;
   readonly group: 'Ir para' | 'Ações' | 'Ativos';
   readonly label: string;
-  readonly icon: IconName;
+  readonly icon: AppIconName;
   readonly run: () => void;
 }
 
@@ -27,9 +34,16 @@ interface CommandPaletteProps {
 function PaletteBody({ onClose, onShowShortcuts }: Omit<CommandPaletteProps, 'open'>) {
   const navigate = useNavigate();
   const theme = useTheme();
+  const colors = useAppColors();
   const { holdings } = useFinance();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+
+  // O diálogo move o foco para si ao abrir; devolvemos o foco ao campo de busca.
+  useEffect(() => {
+    const timer = window.setTimeout(() => document.getElementById('palette-input')?.focus(), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const commands = useMemo<readonly Command[]>(() => {
     const go = (to: string) => () => void navigate(to);
@@ -60,7 +74,7 @@ function PaletteBody({ onClose, onShowShortcuts }: Omit<CommandPaletteProps, 'op
         id: 'keys',
         group: 'Ações',
         label: 'Ver atalhos de teclado',
-        icon: 'keyboard',
+        icon: 'help',
         run: onShowShortcuts,
       },
       ...holdings.map((holding): Command => ({
@@ -99,38 +113,41 @@ function PaletteBody({ onClose, onShowShortcuts }: Omit<CommandPaletteProps, 'op
 
   return (
     <div>
-      <div className="relative">
-        <Icon
-          name="search"
-          size={18}
-          className="pointer-events-none absolute top-3.5 left-3 text-muted"
-        />
-        <input
-          data-autofocus
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="palette-list"
-          aria-activedescendant={results[current] ? `palette-${results[current].id}` : undefined}
-          aria-label="Buscar telas, ações e ativos"
-          placeholder="Buscar telas, ações e ativos…"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setActive(0);
-          }}
-          onKeyDown={handleKey}
-          className="input pl-10"
-        />
-      </div>
+      <AppInput
+        autoFocus
+        id="palette-input"
+        role="combobox"
+        aria-expanded
+        aria-controls="palette-list"
+        aria-activedescendant={results[current] ? `palette-${results[current].id}` : undefined}
+        aria-label="Buscar telas, ações e ativos"
+        placeholder="Buscar telas, ações e ativos…"
+        prefix={<AppIcon name="search" />}
+        size="lg"
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActive(0);
+        }}
+        onKeyDown={handleKey}
+      />
       <ul
         id="palette-list"
         role="listbox"
         aria-label="Resultados"
-        className="mt-3 max-h-80 overflow-y-auto"
+        style={{
+          listStyle: 'none',
+          margin: '12px 0 0',
+          padding: 0,
+          maxHeight: 320,
+          overflowY: 'auto',
+        }}
       >
         {results.length === 0 && (
-          <li role="presentation" className="px-3 py-6 text-center text-sm text-muted">
-            Nada encontrado para “{query}”.
+          <li role="presentation" style={{ padding: '24px 12px', textAlign: 'center' }}>
+            <AppText type="secondary">
+              Nada encontrado para “{query}”. Tente o nome de uma tela ou de um ativo.
+            </AppText>
           </li>
         )}
         {results.map((command, index) => (
@@ -141,13 +158,21 @@ function PaletteBody({ onClose, onShowShortcuts }: Omit<CommandPaletteProps, 'op
             aria-selected={index === current}
             onClick={() => execute(command)}
             onMouseMove={() => setActive(index)}
-            className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 py-2 ${
-              index === current ? 'bg-accent-surface text-accent' : ''
-            }`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              minHeight: 44,
+              padding: '8px 12px',
+              borderRadius: 10,
+              cursor: 'pointer',
+              background: index === current ? colors.primarySurface : 'transparent',
+              color: index === current ? colors.primary : colors.text,
+            }}
           >
-            <Icon name={command.icon} size={18} />
-            <span className="flex-1 font-semibold">{command.label}</span>
-            <span className="text-xs text-muted">{command.group}</span>
+            <AppIcon name={command.icon} />
+            <span style={{ flex: 1, fontWeight: 600 }}>{command.label}</span>
+            <span style={{ fontSize: 12, color: colors.textMuted }}>{command.group}</span>
           </li>
         ))}
       </ul>
@@ -158,8 +183,8 @@ function PaletteBody({ onClose, onShowShortcuts }: Omit<CommandPaletteProps, 'op
 /** Paleta de comandos (Ctrl/⌘ K): telas, ações e ativos com busca sem acento. */
 export function CommandPalette({ open, onClose, onShowShortcuts }: CommandPaletteProps) {
   return (
-    <Modal open={open} title="Paleta de comandos" onClose={onClose} placement="top">
+    <AppModal open={open} title="Paleta de comandos" onClose={onClose} placement="top">
       <PaletteBody onClose={onClose} onShowShortcuts={onShowShortcuts} />
-    </Modal>
+    </AppModal>
   );
 }

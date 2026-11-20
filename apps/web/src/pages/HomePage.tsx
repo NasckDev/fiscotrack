@@ -1,19 +1,12 @@
 import { formatBRL, type MonthlyResult } from '@fiscotrack/engine';
-import { Link } from 'react-router';
-import { AllocationDonut } from '../components/charts/AllocationDonut';
-import { LineSeries, type LinePoint } from '../components/charts/LineSeries';
-import { MonthlyBars } from '../components/charts/MonthlyBars';
-import { AnimatedNumber } from '../components/AnimatedNumber';
 import { BackupReminder } from '../components/BackupReminder';
 import { DataGate } from '../components/DataGate';
-import { Icon } from '../components/Icon';
 import { NextDarfCard } from '../components/NextDarfCard';
+import { PageHeader } from '../components/PageHeader';
 import { PartialNotice } from '../components/PartialNotice';
-import { Reveal } from '../components/Reveal';
-import { useToasts } from '../components/Toasts';
-import { Kpi, Money, PageHeader } from '../components/ui';
 import { todayIso, type DarfEntry } from '../domain/darf';
 import {
+  formatCompactBRL,
   formatDate,
   formatMonth,
   formatMonthShort,
@@ -21,64 +14,212 @@ import {
   plural,
 } from '../domain/format';
 import { monthResultCents } from '../domain/monthStatus';
+import type { Holding } from '../domain/portfolio';
 import { useOperations } from '../state/OperationsContext';
 import { useFinance } from '../state/useFinance';
 import { useRunner } from '../state/useRunner';
+import {
+  AppButton,
+  AppCard,
+  AppCol,
+  AppFlex,
+  AppIcon,
+  AppLink,
+  AppMoney,
+  AppRow,
+  AppStack,
+  AppStatistic,
+  AppText,
+  AppTitle,
+  useAppColors,
+  useToasts,
+} from '../ui';
+import { AppBarChart, AppDonutChart, AppLineChart, type DonutSlice } from '../ui/charts';
 
-function cumulativePoints(months: readonly MonthlyResult[]): readonly LinePoint[] {
-  let running = 0;
-  return months.map((month) => {
-    running += monthResultCents(month);
-    return {
-      label: formatMonthShort(month.month),
-      detail: formatMonthTitle(month.month),
-      value: running / 100,
-    };
-  });
+const reais = (cents: number) => cents / 100;
+const asBRL = (value: number) => formatBRL(Math.round(value * 100));
+const percent = (share: number) =>
+  `${(share * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+
+function MonthlyResultChart({ months }: { readonly months: readonly MonthlyResult[] }) {
+  const colors = useAppColors();
+  const results = months.map(monthResultCents);
+  const best = [...months].sort((a, b) => monthResultCents(b) - monthResultCents(a))[0];
+  return (
+    <AppBarChart
+      title="Resultado por mês"
+      description={`Barras de resultado e DARF estimado por mês, de ${formatMonthShort(months[0]?.month ?? '')} a ${formatMonthShort(months[months.length - 1]?.month ?? '')}.${
+        best
+          ? ` Melhor mês: ${formatMonthTitle(best.month)}, ${formatBRL(monthResultCents(best))}.`
+          : ''
+      }`}
+      categories={months.map((month) => formatMonthShort(month.month))}
+      tooltipTitles={months.map((month) => formatMonthTitle(month.month))}
+      series={[
+        {
+          name: 'Resultado',
+          values: results.map(reais),
+          color: results.map((value) => (value < 0 ? colors.lossFill : colors.gainFill)),
+          labelAt: (index) => ((results[index] ?? 0) < 0 ? 'Prejuízo' : 'Lucro'),
+        },
+        {
+          name: 'DARF estimado',
+          values: months.map((month) => reais(month.darfDueCents)),
+          color: colors.darfBar,
+        },
+      ]}
+      legend={[
+        { color: colors.gainFill, label: 'Lucro' },
+        { color: colors.lossFill, label: 'Prejuízo' },
+        { color: colors.darfBar, label: 'DARF estimado' },
+      ]}
+      formatValue={asBRL}
+      formatAxis={formatCompactBRL}
+      table={{
+        head: ['Mês', 'Resultado', 'DARF estimado'],
+        rows: months.map((month) => [
+          formatMonthTitle(month.month),
+          <AppMoney key="r" cents={monthResultCents(month)} signed />,
+          <AppMoney key="d" cents={month.darfDueCents} />,
+        ]),
+      }}
+    />
+  );
+}
+
+function CumulativeChart({ months }: { readonly months: readonly MonthlyResult[] }) {
+  const cumulative = months.reduce<number[]>(
+    (acc, month) => [...acc, (acc[acc.length - 1] ?? 0) + monthResultCents(month)],
+    [],
+  );
+  const last = cumulative[cumulative.length - 1];
+  return (
+    <AppLineChart
+      title="Resultado acumulado"
+      description={`Linha do resultado acumulado mês a mês${last === undefined ? '' : `, chegando a ${formatBRL(last)}`}.`}
+      categories={months.map((month) => formatMonthShort(month.month))}
+      tooltipTitles={months.map((month) => formatMonthTitle(month.month))}
+      name="Acumulado"
+      values={cumulative.map(reais)}
+      formatValue={asBRL}
+      formatAxis={formatCompactBRL}
+      table={{
+        head: ['Mês', 'Acumulado'],
+        rows: months.map((month, index) => [
+          formatMonthTitle(month.month),
+          <AppMoney key="v" cents={cumulative[index] ?? 0} />,
+        ]),
+      }}
+    />
+  );
+}
+
+function AllocationChart({
+  holdings,
+  investedCents,
+}: {
+  readonly holdings: readonly Holding[];
+  readonly investedCents: number;
+}) {
+  const colors = useAppColors();
+  const open = holdings.filter((holding) => holding.totalCostCents > 0);
+  const total = open.reduce((sum, holding) => sum + holding.totalCostCents, 0);
+  const slices: DonutSlice[] = [...open]
+    .sort((a, b) => b.totalCostCents - a.totalCostCents)
+    .map((holding, index) => ({
+      name: holding.ticker,
+      value: reais(holding.totalCostCents),
+      color: colors.categorical[index % colors.categorical.length] ?? colors.primary,
+    }));
+  const top =
+    open.length > 0 ? [...open].sort((a, b) => b.totalCostCents - a.totalCostCents)[0] : undefined;
+  return (
+    <AppDonutChart
+      title="Alocação por ativo"
+      description={`Rosca com a distribuição do patrimônio por ativo.${
+        top
+          ? ` Maior posição: ${top.ticker}, ${percent(total === 0 ? 0 : top.totalCostCents / total)}.`
+          : ''
+      }`}
+      slices={slices}
+      formatValue={asBRL}
+      formatShare={percent}
+      centerValue={formatCompactBRL(reais(investedCents))}
+      centerLabel="ao custo"
+      table={{
+        head: ['Ativo', 'Custo', 'Participação'],
+        rows: slices.map((slice) => [
+          slice.name,
+          <AppText key="c" mono>
+            {asBRL(slice.value)}
+          </AppText>,
+          <AppText key="s" mono>
+            {percent(total === 0 ? 0 : (slice.value * 100) / total)}
+          </AppText>,
+        ]),
+      }}
+    />
+  );
 }
 
 function RecentOperations() {
   const { operations } = useFinance();
+  const colors = useAppColors();
   const recent = [...operations]
     .sort((a, b) => b.date.localeCompare(a.date) || (b.seq ?? 0) - (a.seq ?? 0))
     .slice(0, 5);
   return (
-    <section aria-labelledby="recentes" className="card flex h-full flex-col p-4 sm:p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 id="recentes" className="text-base font-bold">
+    <AppCard fullHeight aria-labelledby="recentes">
+      <AppFlex justify="space-between" align="center" gap="small">
+        <AppTitle level={3} id="recentes">
           Últimas operações
-        </h2>
-        <Link to="/operacoes" className="link inline-flex min-h-11 items-center text-sm">
-          Ver todas
-        </Link>
-      </div>
-      <ul className="divide-y divide-line-soft">
+        </AppTitle>
+        <AppLink to="/operacoes">Ver todas</AppLink>
+      </AppFlex>
+      <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
         {recent.map((operation) => (
-          <li key={operation.id} className="flex items-center justify-between gap-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-3">
+          <li
+            key={operation.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              padding: '10px 0',
+              borderBottom: `1px solid ${colors.borderSoft}`,
+            }}
+          >
+            <AppFlex align="center" gap="middle">
               <span
-                className={`flex size-9 flex-none items-center justify-center rounded-xl ${
-                  operation.side === 'BUY'
-                    ? 'bg-info-surface text-info'
-                    : 'bg-accent-surface text-accent'
-                }`}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: operation.side === 'BUY' ? colors.infoSurface : colors.gainSurface,
+                  color: operation.side === 'BUY' ? colors.info : colors.gain,
+                }}
               >
-                <Icon name={operation.side === 'BUY' ? 'wallet' : 'trend-up'} size={16} />
+                <AppIcon name={operation.side === 'BUY' ? 'wallet' : 'trend-up'} />
               </span>
-              <div className="min-w-0">
-                <p className="font-bold">
+              <div>
+                <AppText strong block>
                   {operation.side === 'BUY' ? 'Compra' : 'Venda'} {operation.ticker}
-                </p>
-                <p className="num text-xs text-muted">{formatDate(operation.date)}</p>
+                </AppText>
+                <AppText type="secondary" mono size="sm">
+                  {formatDate(operation.date)}
+                </AppText>
               </div>
-            </div>
-            <p className="num flex-none text-sm font-semibold">
+            </AppFlex>
+            <AppText mono strong>
               {formatBRL(operation.quantity * operation.unitPriceCents)}
-            </p>
+            </AppText>
           </li>
         ))}
       </ul>
-    </section>
+    </AppCard>
   );
 }
 
@@ -92,8 +233,6 @@ function HomeContent() {
     .filter((month) => month.month.startsWith(year))
     .reduce((sum, month) => sum + monthResultCents(month), 0);
   const openPositions = holdings.filter((holding) => holding.quantity > 0).length;
-  const points = cumulativePoints(report.months);
-  const lastPoint = points[points.length - 1];
 
   const handleMarkPaid = async (entry: DarfEntry) => {
     const ok = await run(
@@ -110,76 +249,74 @@ function HomeContent() {
   };
 
   return (
-    <div className="space-y-4">
+    <AppStack>
       <PageHeader
         title="Início"
         description={`${plural(operations.length, 'operação', 'operações')} · dados salvos só neste navegador`}
+        actions={
+          <AppButton variant="primary" icon="plus" to="/operacoes?nova=1">
+            Nova operação
+          </AppButton>
+        }
       />
       <PartialNotice report={report} />
       <BackupReminder />
-      <div className="grid grid-cols-2 gap-3 lg:gap-4 xl:grid-cols-4">
-        <Reveal index={0} className="col-span-2 h-full">
+      <AppRow>
+        <AppCol xs={24} xl={12}>
           <NextDarfCard darfs={darfs} onMarkPaid={(entry) => void handleMarkPaid(entry)} />
-        </Reveal>
-        <div className="col-span-2 grid grid-cols-2 gap-3 lg:gap-4 xl:grid-cols-1 xl:grid-rows-2">
-          <Reveal index={1} className="h-full">
-            <Kpi
-              label="Patrimônio investido"
+        </AppCol>
+        <AppCol xs={24} md={12} xl={6}>
+          <AppCard fullHeight padding="lg">
+            <AppStatistic
+              title="Patrimônio investido"
               icon="wallet"
+              value={investedCents}
+              format={formatBRL}
+              animated
               hint={`${plural(openPositions, 'ativo em carteira', 'ativos em carteira')}, ao custo`}
-            >
-              <AnimatedNumber value={investedCents} format={formatBRL} className="num" />
-            </Kpi>
-          </Reveal>
-          <Reveal index={2} className="h-full">
-            <Kpi
-              label={`Resultado em ${year}`}
+            />
+            <div style={{ marginTop: 16 }}>
+              <AppLink to="/carteira">Ver carteira</AppLink>
+            </div>
+          </AppCard>
+        </AppCol>
+        <AppCol xs={24} md={12} xl={6}>
+          <AppCard fullHeight padding="lg">
+            <AppStatistic
+              title={`Resultado em ${year}`}
               icon={yearResult < 0 ? 'trend-down' : 'trend-up'}
+              value={yearResult}
+              format={formatBRL}
+              tone={yearResult < 0 ? 'loss' : yearResult > 0 ? 'gain' : 'default'}
               hint="Lucro menos prejuízo, após custos"
-            >
-              <Money cents={yearResult} signed />
-            </Kpi>
-          </Reveal>
-        </div>
-      </div>
+            />
+            <div style={{ marginTop: 16 }}>
+              <AppLink to="/apuracao">Ver apuração mensal</AppLink>
+            </div>
+          </AppCard>
+        </AppCol>
+      </AppRow>
       {report.months.length > 0 && (
         <>
-          <div className="grid items-stretch gap-4 xl:grid-cols-3">
-            <Reveal index={3} className="h-full xl:col-span-2">
-              <MonthlyBars months={report.months} />
-            </Reveal>
-            <Reveal index={4} className="h-full">
-              <AllocationDonut holdings={holdings} />
-            </Reveal>
-          </div>
-          <div className="grid items-stretch gap-4 xl:grid-cols-3">
-            <Reveal index={5} className="h-full xl:col-span-2">
-              <LineSeries
-                title="Resultado acumulado"
-                description={`Linha do resultado acumulado mês a mês${
-                  lastPoint ? `, chegando a ${formatBRL(Math.round(lastPoint.value * 100))}` : ''
-                }.`}
-                seriesLabel="Acumulado"
-                points={points}
-                formatValue={(value) => formatBRL(Math.round(value * 100))}
-                table={{
-                  head: ['Mês', 'Acumulado'],
-                  rows: points.map((point) => [
-                    point.detail,
-                    <span key="v" className="num">
-                      {formatBRL(Math.round(point.value * 100))}
-                    </span>,
-                  ]),
-                }}
-              />
-            </Reveal>
-            <Reveal index={6} className="h-full">
+          <AppRow>
+            <AppCol xs={24} xl={16}>
+              <MonthlyResultChart months={report.months} />
+            </AppCol>
+            <AppCol xs={24} xl={8}>
+              <AllocationChart holdings={holdings} investedCents={investedCents} />
+            </AppCol>
+          </AppRow>
+          <AppRow>
+            <AppCol xs={24} xl={16}>
+              <CumulativeChart months={report.months} />
+            </AppCol>
+            <AppCol xs={24} xl={8}>
               <RecentOperations />
-            </Reveal>
-          </div>
+            </AppCol>
+          </AppRow>
         </>
       )}
-    </div>
+    </AppStack>
   );
 }
 

@@ -4,23 +4,34 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../src/App';
-import { ToastProvider } from '../src/components/Toasts';
 import { serializeBackup } from '../src/domain/backup';
+import { AppThemeProvider, ToastProvider } from '../src/ui';
 import { OperationsProvider } from '../src/state/OperationsContext';
 import {
   createMemoryRepository,
   type OperationsRepository,
 } from '../src/storage/operationsRepository';
 
+/** O Upload do Ant Design guarda o <input type=file> escondido dentro da área de arrastar. */
+async function fileInput(): Promise<HTMLInputElement> {
+  return waitFor(() => {
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (input === null) throw new Error('sem input de arquivo');
+    return input;
+  });
+}
+
 function renderApp(repository: OperationsRepository, path = '/') {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <OperationsProvider repository={repository}>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
-      </OperationsProvider>
-    </MemoryRouter>,
+    <AppThemeProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <OperationsProvider repository={repository}>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </OperationsProvider>
+      </MemoryRouter>
+    </AppThemeProvider>,
   );
 }
 
@@ -189,11 +200,14 @@ describe('operações', () => {
     await user.click(await screen.findByRole('button', { name: 'Nova operação' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nova operação' });
     await user.click(within(dialog).getByRole('button', { name: 'Adicionar operação' }));
-    expect(await within(dialog).findByText(/Informe a data/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Informe o ticker, por exemplo PETR4/)).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Data')).toHaveFocus();
+    expect(
+      await within(dialog).findByText(/Informe o ticker, por exemplo PETR4/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/Quantidade: digite um número inteiro/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Ativo (ticker)')).toHaveFocus();
 
-    await user.type(within(dialog).getByLabelText('Data'), '2024-03-15');
+    await user.clear(within(dialog).getByLabelText('Data'));
+    await user.type(within(dialog).getByLabelText('Data'), '15/03/2024{Enter}');
     await user.type(within(dialog).getByLabelText('Ativo (ticker)'), 'VALE3');
     await user.type(within(dialog).getByLabelText('Quantidade'), '1.000');
     await user.type(within(dialog).getByLabelText('Preço unitário (R$)'), '60,00');
@@ -213,7 +227,6 @@ describe('operações', () => {
     renderApp(failingWrites(createMemoryRepository()), '/operacoes?nova=1');
     const user = userEvent.setup();
     const dialog = await screen.findByRole('dialog', { name: 'Nova operação' });
-    await user.type(within(dialog).getByLabelText('Data'), '2024-03-15');
     await user.type(within(dialog).getByLabelText('Ativo (ticker)'), 'VALE3');
     await user.type(within(dialog).getByLabelText('Quantidade'), '10');
     await user.type(within(dialog).getByLabelText('Preço unitário (R$)'), '60,00');
@@ -250,7 +263,7 @@ describe('operações', () => {
     }));
     renderApp(createMemoryRepository(many), '/operacoes');
     expect(await screen.findByText(/1–50 de 120 operações/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
     expect(await screen.findByText(/51–100 de 120 operações/)).toBeInTheDocument();
   });
 });
@@ -266,10 +279,7 @@ describe('importação', () => {
     const repository = createMemoryRepository();
     renderApp(repository, '/importar');
     const user = userEvent.setup();
-    await user.upload(
-      await screen.findByLabelText('Arquivo CSV'),
-      new File([csv], 'corretora.csv', { type: 'text/csv' }),
-    );
+    await user.upload(await fileInput(), new File([csv], 'corretora.csv', { type: 'text/csv' }));
     expect(await screen.findByText(/Revise a prévia/)).toBeInTheDocument();
     expect(screen.getByText(/1 operação pronta/)).toBeInTheDocument();
     const fix = screen.getByLabelText('Corrigir a linha 3');
@@ -294,20 +304,14 @@ describe('importação', () => {
     };
     renderApp(createMemoryRepository([existing]), '/importar');
     const user = userEvent.setup();
-    await user.upload(
-      await screen.findByLabelText('Arquivo CSV'),
-      new File([csv], 'corretora.csv', { type: 'text/csv' }),
-    );
+    await user.upload(await fileInput(), new File([csv], 'corretora.csv', { type: 'text/csv' }));
     expect(await screen.findByText(/1 possível repetida/)).toBeInTheDocument();
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
 
   it('recusa arquivo vazio com instrução', async () => {
     renderApp(createMemoryRepository(), '/importar');
-    await userEvent.upload(
-      await screen.findByLabelText('Arquivo CSV'),
-      new File([''], 'vazio.csv', { type: 'text/csv' }),
-    );
+    await userEvent.upload(await fileInput(), new File([''], 'vazio.csv', { type: 'text/csv' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/está vazio/);
   });
 });
@@ -346,7 +350,11 @@ describe('shell', () => {
   it('dispensa o aviso educacional e lembra a escolha', async () => {
     const user = userEvent.setup();
     const first = renderApp(createMemoryRepository());
-    await user.click(screen.getByRole('button', { name: 'Dispensar aviso educacional' }));
+    await user.click(
+      within(screen.getByRole('complementary', { name: 'Aviso educacional' })).getByRole('button', {
+        name: 'Dispensar aviso',
+      }),
+    );
     expect(screen.queryByRole('complementary', { name: 'Aviso educacional' })).toBeNull();
     first.unmount();
     renderApp(createMemoryRepository());
@@ -367,7 +375,7 @@ describe('shell', () => {
     await user.keyboard('{Control>}k{/Control}');
     const palette = await screen.findByRole('dialog', { name: 'Paleta de comandos' });
     const input = within(palette).getByRole('combobox');
-    expect(input).toHaveFocus();
+    await waitFor(() => expect(input).toHaveFocus());
     await user.keyboard('regr');
     expect(within(palette).getAllByRole('option')).toHaveLength(1);
   });

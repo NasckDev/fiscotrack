@@ -1,3 +1,6 @@
+// O Ant Design usa o id fixo "test-id" quando NODE_ENV=test, o que quebra o nome acessível dos diálogos.
+process.env.NODE_ENV = 'development';
+
 import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
@@ -34,3 +37,11 @@ window.matchMedia = (query: string): MediaQueryList =>
     removeListener: () => undefined,
     dispatchEvent: () => false,
   }) as MediaQueryList;
+
+// jsdom não tem ResizeObserver (o Ant Design usa em tabelas, menus e seletores).
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+window.ResizeObserver = ResizeObserverStub;

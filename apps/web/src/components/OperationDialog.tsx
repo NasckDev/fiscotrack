@@ -1,13 +1,38 @@
 import type { Operation } from '@fiscotrack/engine';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useState } from 'react';
 import { csvRowSchema, rowToOperation } from '../domain/csv';
 import { centsToInput } from '../domain/csvExport';
 import { todayIso } from '../domain/darf';
-import { Icon } from './Icon';
-import { Modal } from './Modal';
+import {
+  AppAlert,
+  AppButton,
+  AppDatePicker,
+  AppDrawer,
+  AppFlex,
+  AppForm,
+  AppFormItem,
+  AppInput,
+  AppModal,
+  AppRow,
+  AppCol,
+  AppSelect,
+  useAppColors,
+  useAppForm,
+  useIsMobile,
+  type AppFormRule,
+} from '../ui';
 
 type FieldName = 'data' | 'ticker' | 'tipo' | 'quantidade' | 'preco' | 'taxas' | 'modalidade';
-type FieldErrors = Partial<Record<FieldName, string>>;
+
+interface FormValues {
+  data: string | null;
+  ticker: string;
+  tipo: string;
+  quantidade: string;
+  preco: string;
+  taxas: string;
+  modalidade: string;
+}
 
 interface OperationDialogProps {
   readonly open: boolean;
@@ -20,50 +45,53 @@ interface OperationDialogProps {
   readonly onSave: (operation: Operation, isEdit: boolean) => Promise<string | null>;
 }
 
-function readForm(form: HTMLFormElement): Record<string, string> {
-  const data = new FormData(form);
-  return Object.fromEntries(
-    [...data.entries()].map(([key, value]) => [key, typeof value === 'string' ? value : '']),
-  );
-}
-
-function Field({
-  name,
-  label,
-  error,
-  className = '',
-  children,
-}: {
-  name: FieldName;
-  label: string;
-  error: string | undefined;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={`field ${className}`}>
-      <label htmlFor={`op-${name}`}>{label}</label>
-      {children}
-      {error !== undefined && (
-        <p id={`op-${name}-erro`} className="text-xs font-medium text-danger">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function errorProps(name: FieldName, errors: FieldErrors) {
-  return {
-    id: `op-${name}`,
-    name,
-    'aria-invalid': errors[name] !== undefined,
-    'aria-describedby': errors[name] !== undefined ? `op-${name}-erro` : undefined,
-  } as const;
-}
+const TYPE_OPTIONS = [
+  { value: 'compra', label: 'Compra' },
+  { value: 'venda', label: 'Venda' },
+];
+const CATEGORY_OPTIONS = [
+  { value: 'comum', label: 'Comum' },
+  { value: 'daytrade', label: 'Day trade' },
+];
 
 /** Cria o `seq` de uma operação nova; edições preservam o original. */
 const newSeq = () => Date.now() * 1000;
+
+/** Texto de cada campo como o schema do CSV espera (campos vazios viram texto vazio). */
+function toRaw(values: Partial<FormValues>): Record<FieldName, string> {
+  return {
+    data: values.data ?? '',
+    ticker: values.ticker ?? '',
+    tipo: values.tipo ?? '',
+    quantidade: values.quantidade ?? '',
+    preco: values.preco ?? '',
+    taxas: values.taxas ?? '',
+    modalidade: values.modalidade ?? '',
+  };
+}
+
+function initialValues(editing: Operation | null, defaultTicker: string | undefined): FormValues {
+  if (editing) {
+    return {
+      data: editing.date,
+      ticker: editing.ticker,
+      tipo: editing.side === 'SELL' ? 'venda' : 'compra',
+      quantidade: String(editing.quantity),
+      preco: centsToInput(editing.unitPriceCents),
+      taxas: centsToInput(editing.feesCents),
+      modalidade: editing.category === 'DAY_TRADE' ? 'daytrade' : 'comum',
+    };
+  }
+  return {
+    data: todayIso(),
+    ticker: defaultTicker ?? '',
+    tipo: 'compra',
+    quantidade: '',
+    preco: '',
+    taxas: '0',
+    modalidade: 'comum',
+  };
+}
 
 function OperationForm({
   editing,
@@ -71,31 +99,25 @@ function OperationForm({
   onClose,
   onSave,
 }: Omit<OperationDialogProps, 'open'>) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [form] = useAppForm<FormValues>();
+  const colors = useAppColors();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Leva o foco ao primeiro campo inválido depois que os erros aparecem.
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-    }
-  }, [errors]);
+  /** Valida o campo com o mesmo schema da importação, para as mensagens serem iguais. */
+  const rule = (name: FieldName): AppFormRule => ({
+    validator: () => {
+      const parsed = csvRowSchema.safeParse(toRaw(form.getFieldsValue()));
+      const issue = parsed.success
+        ? undefined
+        : parsed.error.issues.find((item) => item.path[0] === name);
+      return issue ? Promise.reject(new Error(issue.message)) : Promise.resolve();
+    },
+  });
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const parsed = csvRowSchema.safeParse(readForm(event.currentTarget));
-    if (!parsed.success) {
-      const next: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0] as FieldName | undefined;
-        if (key !== undefined && next[key] === undefined) next[key] = issue.message;
-      }
-      setErrors(next);
-      return;
-    }
-    setErrors({});
+  const handleFinish = async (values: FormValues) => {
+    const parsed = csvRowSchema.safeParse(toRaw(values));
+    if (!parsed.success) return;
     setSaveError(null);
     setIsSaving(true);
     const id = editing?.id ?? `manual-${crypto.randomUUID()}`;
@@ -109,112 +131,104 @@ function OperationForm({
   };
 
   return (
-    <form
-      ref={formRef}
-      className="grid grid-cols-2 gap-4"
-      onSubmit={(event) => void handleSubmit(event)}
-      noValidate
+    <AppForm<FormValues>
+      form={form}
+      name="operacao"
+      initialValues={initialValues(editing, defaultTicker)}
+      onFinish={handleFinish}
     >
-      <Field name="data" label="Data" error={errors.data}>
-        <input
-          {...errorProps('data', errors)}
-          type="date"
-          required
-          max={todayIso()}
-          defaultValue={editing?.date}
-          data-autofocus
-          className="input"
-        />
-      </Field>
-      <Field name="ticker" label="Ativo (ticker)" error={errors.ticker}>
-        <input
-          {...errorProps('ticker', errors)}
-          required
-          placeholder="PETR4"
-          autoCapitalize="characters"
-          defaultValue={editing?.ticker ?? defaultTicker}
-          className="input uppercase"
-        />
-      </Field>
-      <Field name="tipo" label="Tipo" error={errors.tipo}>
-        <select
-          {...errorProps('tipo', errors)}
-          defaultValue={editing?.side === 'SELL' ? 'venda' : 'compra'}
-          className="input"
-        >
-          <option value="compra">Compra</option>
-          <option value="venda">Venda</option>
-        </select>
-      </Field>
-      <Field name="modalidade" label="Modalidade" error={errors.modalidade}>
-        <select
-          {...errorProps('modalidade', errors)}
-          defaultValue={editing?.category === 'DAY_TRADE' ? 'daytrade' : 'comum'}
-          className="input"
-        >
-          <option value="comum">Comum</option>
-          <option value="daytrade">Day trade</option>
-        </select>
-      </Field>
-      <Field name="quantidade" label="Quantidade" error={errors.quantidade}>
-        <input
-          {...errorProps('quantidade', errors)}
-          inputMode="numeric"
-          required
-          defaultValue={editing?.quantity}
-          className="input num"
-        />
-      </Field>
-      <Field name="preco" label="Preço unitário (R$)" error={errors.preco}>
-        <input
-          {...errorProps('preco', errors)}
-          inputMode="decimal"
-          required
-          placeholder="32,50"
-          defaultValue={editing ? centsToInput(editing.unitPriceCents) : undefined}
-          className="input num"
-        />
-      </Field>
-      <Field
-        name="taxas"
-        label="Custos da operação (R$)"
-        error={errors.taxas}
-        className="col-span-2"
+      <AppRow>
+        <AppCol xs={24} sm={12}>
+          <AppFormItem
+            name="data"
+            label="Data"
+            rules={[rule('data')]}
+            validateTrigger={['onChange', 'onBlur']}
+          >
+            <AppDatePicker max={todayIso()} />
+          </AppFormItem>
+        </AppCol>
+        <AppCol xs={24} sm={12}>
+          <AppFormItem
+            name="ticker"
+            label="Ativo (ticker)"
+            rules={[rule('ticker')]}
+            validateTrigger="onBlur"
+            normalize={(value) => value.toUpperCase()}
+          >
+            <AppInput placeholder="PETR4" autoCapitalize="characters" autoFocus />
+          </AppFormItem>
+        </AppCol>
+        <AppCol xs={12} sm={12}>
+          <AppFormItem name="tipo" label="Tipo" rules={[rule('tipo')]}>
+            <AppSelect options={TYPE_OPTIONS} />
+          </AppFormItem>
+        </AppCol>
+        <AppCol xs={12} sm={12}>
+          <AppFormItem name="modalidade" label="Modalidade" rules={[rule('modalidade')]}>
+            <AppSelect options={CATEGORY_OPTIONS} />
+          </AppFormItem>
+        </AppCol>
+        <AppCol xs={12} sm={12}>
+          <AppFormItem
+            name="quantidade"
+            label="Quantidade"
+            rules={[rule('quantidade')]}
+            validateTrigger="onBlur"
+          >
+            <AppInput mono inputMode="numeric" placeholder="100" />
+          </AppFormItem>
+        </AppCol>
+        <AppCol xs={12} sm={12}>
+          <AppFormItem
+            name="preco"
+            label="Preço unitário (R$)"
+            rules={[rule('preco')]}
+            validateTrigger="onBlur"
+          >
+            <AppInput mono inputMode="decimal" placeholder="32,50" />
+          </AppFormItem>
+        </AppCol>
+        <AppCol xs={24}>
+          <AppFormItem
+            name="taxas"
+            label="Custos da operação (R$)"
+            rules={[rule('taxas')]}
+            validateTrigger="onBlur"
+          >
+            <AppInput mono inputMode="decimal" />
+          </AppFormItem>
+        </AppCol>
+      </AppRow>
+      {saveError !== null && <AppAlert tone="error" role="alert" title={saveError} />}
+      <div
+        style={{
+          position: 'sticky',
+          bottom: -24,
+          zIndex: 1,
+          marginTop: 16,
+          padding: '12px 0 8px',
+          background: colors.bgContainer,
+          borderTop: `1px solid ${colors.borderSoft}`,
+        }}
       >
-        <input
-          {...errorProps('taxas', errors)}
-          inputMode="decimal"
-          defaultValue={editing ? centsToInput(editing.feesCents) : '0'}
-          className="input num"
-        />
-      </Field>
-      {Object.keys(errors).length > 0 && (
-        <p role="alert" className="col-span-2 text-sm font-medium text-danger">
-          Corrija os campos destacados e salve de novo.
-        </p>
-      )}
-      {saveError !== null && (
-        <p
-          role="alert"
-          className="col-span-2 rounded-lg bg-danger-surface p-3 text-sm font-medium text-danger"
-        >
-          {saveError}
-        </p>
-      )}
-      <div className="col-span-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
-          Cancelar
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={isSaving}>
-          <Icon name={editing ? 'check' : 'plus'} size={16} />
-          {editing ? 'Salvar alterações' : 'Adicionar operação'}
-        </button>
+        <AppFlex gap="small" justify="flex-end">
+          <AppButton onClick={onClose}>Cancelar</AppButton>
+          <AppButton
+            variant="primary"
+            htmlType="submit"
+            loading={isSaving}
+            icon={editing ? 'check' : 'plus'}
+          >
+            {editing ? 'Salvar alterações' : 'Adicionar operação'}
+          </AppButton>
+        </AppFlex>
       </div>
-    </form>
+    </AppForm>
   );
 }
 
-/** Diálogo para lançar ou editar uma operação, com erro ligado a cada campo. */
+/** Lançar ou editar uma operação: modal no desktop e gaveta inferior no celular, com erro por campo. */
 export function OperationDialog({
   open,
   editing,
@@ -222,14 +236,26 @@ export function OperationDialog({
   onClose,
   onSave,
 }: OperationDialogProps) {
+  const isMobile = useIsMobile();
+  const title = editing ? 'Editar operação' : 'Nova operação';
+  const form = (
+    <OperationForm
+      editing={editing}
+      defaultTicker={defaultTicker}
+      onClose={onClose}
+      onSave={onSave}
+    />
+  );
+  if (isMobile) {
+    return (
+      <AppDrawer open={open} title={title} onClose={onClose} placement="bottom">
+        {form}
+      </AppDrawer>
+    );
+  }
   return (
-    <Modal open={open} title={editing ? 'Editar operação' : 'Nova operação'} onClose={onClose}>
-      <OperationForm
-        editing={editing}
-        defaultTicker={defaultTicker}
-        onClose={onClose}
-        onSave={onSave}
-      />
-    </Modal>
+    <AppModal open={open} title={title} onClose={onClose}>
+      {form}
+    </AppModal>
   );
 }

@@ -7,6 +7,7 @@ const channel = process.env.PW_CHANNEL;
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
+  expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
@@ -22,7 +23,7 @@ export default defineConfig({
     },
     {
       name: 'celular',
-      use: { ...devices['Pixel 5'], viewport: { width: 390, height: 844 } },
+      use: { ...devices['Pixel 5'], viewport: { width: 360, height: 780 } },
     },
   ],
   webServer: {

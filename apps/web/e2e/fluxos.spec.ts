@@ -24,7 +24,10 @@ const BROKER_CSV = [
 async function openWithExample(page: Page) {
   await page.goto('./');
   await expect(page.getByRole('region', { name: 'Próximo DARF' })).toBeVisible();
-  await page.getByRole('button', { name: 'Fechar aviso' }).click();
+  await page
+    .getByRole('complementary', { name: 'Aviso educacional' })
+    .getByRole('button', { name: 'Dispensar aviso' })
+    .click();
 }
 
 async function gotoRoute(page: Page, hash: string) {
@@ -43,6 +46,8 @@ async function settle(page: Page) {
           animation.playState !== 'running',
       ),
   );
+  // Os gráficos (ECharts) animam por requestAnimationFrame, fora da API de animações do navegador.
+  await page.waitForTimeout(1200);
 }
 
 async function expectNoAxeViolations(page: Page) {
@@ -87,8 +92,7 @@ test('operações: criar, editar, excluir e desfazer', async ({ page }) => {
   await gotoRoute(page, '#/operacoes');
   await page.getByRole('button', { name: 'Nova operação' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nova operação' });
-  await expect(dialog.getByLabel('Data')).toBeFocused();
-  await dialog.getByLabel('Data').fill('2026-01-12');
+  await expect(dialog.getByLabel('Ativo (ticker)')).toBeFocused();
   await dialog.getByLabel('Ativo (ticker)').fill('ABEV3');
   await dialog.getByLabel('Quantidade').fill('100');
   await dialog.getByLabel('Preço unitário (R$)').fill('12,40');
@@ -119,11 +123,14 @@ test('operações: criar, editar, excluir e desfazer', async ({ page }) => {
 test('importação: mapeia colunas, corrige a linha com erro e importa', async ({ page }) => {
   await openWithExample(page);
   await gotoRoute(page, '#/importar');
-  await page.getByLabel('Arquivo CSV').setInputFiles({
-    name: 'corretora.csv',
-    mimeType: 'text/csv',
-    buffer: Buffer.from(BROKER_CSV),
-  });
+  await page
+    .locator('input[type="file"]')
+    .first()
+    .setInputFiles({
+      name: 'corretora.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(BROKER_CSV),
+    });
   await expect(page.getByText(/Revise a prévia/)).toBeVisible();
   await page.getByLabel('Corrigir a linha 3').fill('19/01/2026;ABEV3;V;100;33,10');
   await expect(page.getByText(/2 operações prontas/)).toBeVisible();
@@ -168,6 +175,7 @@ test('paleta de comandos e atalhos de teclado', async ({ page, isMobile }) => {
   await page.keyboard.type('apura');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/apuracao$/);
+  await expect(palette).toBeHidden();
   await page.keyboard.press('g');
   await page.keyboard.press('d');
   await expect(page).toHaveURL(/#\/darfs$/);
@@ -188,8 +196,11 @@ test('celular: DARFs na barra inferior e menu do header com Configurações', as
     .getByRole('link', { name: 'DARFs' })
     .click();
   await expect(page).toHaveURL(/#\/darfs$/);
-  await page.getByRole('button', { name: /Menu: importar/ }).click();
-  await page.getByRole('link', { name: /Configurações/ }).click();
+  await page.getByRole('button', { name: 'Abrir menu' }).click();
+  await page
+    .getByRole('dialog', { name: 'Menu' })
+    .getByRole('menuitem', { name: /Configurações/ })
+    .click();
   await expect(page).toHaveURL(/#\/config$/);
 });
 
@@ -238,3 +249,37 @@ for (const theme of ['light', 'dark'] as const) {
     await expectNoAxeViolations(page);
   });
 }
+
+/** Geometria dos diálogos: o painel e o botão de salvar cabem na tela, sem cortes. */
+async function expectInsideViewport(page: Page, locator: ReturnType<Page['locator']>) {
+  const viewport = page.viewportSize();
+  const box = await locator.boundingBox();
+  expect(box, 'elemento visível').not.toBeNull();
+  if (box === null || viewport === null) return;
+  expect(box.x).toBeGreaterThanOrEqual(-0.5);
+  expect(box.y).toBeGreaterThanOrEqual(-0.5);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 0.5);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 0.5);
+}
+
+test('geometria: diálogos cabem na tela e o foco volta para quem abriu', async ({ page }) => {
+  await openWithExample(page);
+  await gotoRoute(page, '#/operacoes');
+  const opener = page.getByRole('button', { name: 'Nova operação' });
+  await opener.click();
+  const dialog = page.getByRole('dialog', { name: 'Nova operação' });
+  await expect(dialog).toBeVisible();
+  await page.waitForTimeout(500);
+  await expectInsideViewport(page, dialog);
+  await expectInsideViewport(page, dialog.getByRole('button', { name: 'Adicionar operação' }));
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+
+  await page.getByRole('button', { name: 'Apagar todas' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Apagar todas as operações?' });
+  await expect(confirm).toBeVisible();
+  await page.waitForTimeout(500);
+  await expectInsideViewport(page, confirm);
+  await expect(confirm.getByRole('button', { name: 'Cancelar' })).toBeFocused();
+});
