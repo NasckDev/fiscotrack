@@ -20,3 +20,17 @@ HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
   this.removeAttribute('open');
   this.dispatchEvent(new Event('close'));
 };
+
+// jsdom não tem matchMedia. Simula "reduzir movimento" (sem animações de entrada, que deixariam
+// elementos com opacidade 0 durante o teste) e um viewport largo (tabelas em vez de cards).
+window.matchMedia = (query: string): MediaQueryList =>
+  ({
+    matches: query.includes('prefers-reduced-motion') || query.includes('min-width'),
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }) as MediaQueryList;
