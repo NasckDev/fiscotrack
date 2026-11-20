@@ -11,10 +11,10 @@ genérico e dividia a aparência com outro projeto.
 ## Decisão
 
 - Tokens próprios em `apps/web/src/styles/theme.css` (verde-floresta, creme, menta para ganho, rosa
-  para perda, dourado para DARF) mapeados para o Tailwind 4 com `@theme inline`.
+  para perda, dourado para DARF) mapeados para os tokens do tema (hoje o do Ant Design, ver ADR 0009).
 - Manrope na interface e JetBrains Mono nos valores, auto-hospedadas via `@fontsource-variable`.
 - Texto colorido usa tons mais escuros que as cores de preenchimento dos gráficos, para manter
-  contraste AA. `scripts/contrast.mjs` calcula os pares nos dois temas.
+  contraste AA. o teste `apps/web/test/contrast.test.ts` calcula os pares nos dois temas (substituiu o antigo `scripts/contrast.mjs`; ver [ADR 0009](0009-ui-com-ant-design-echarts-e-wrappers.md)).
 - Ícones `lucide-react`; animações com `motion`, todas desligadas com `prefers-reduced-motion`.
 - Diálogos usam o elemento nativo `<dialog>` (foco preso, Esc e retorno de foco pelo navegador).
 
