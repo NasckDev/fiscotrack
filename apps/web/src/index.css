@@ -321,9 +321,8 @@
     color: var(--ft-color-text-muted);
   }
   .glass {
-    background: color-mix(in srgb, var(--ft-nav) 98%, transparent);
-    backdrop-filter: blur(14px) saturate(1.4);
-    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    background: var(--ft-nav);
+    box-shadow: 0 0 12px rgb(14 31 24 / 0.08);
   }
   dialog.modal::backdrop {
     background: var(--ft-color-overlay);
