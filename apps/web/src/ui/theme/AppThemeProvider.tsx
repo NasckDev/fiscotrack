@@ -38,6 +38,11 @@ export function useIsMobile(): boolean {
   return !useQuery('(min-width: 768px)', true);
 }
 
+/** Viewport mais estreito que `px` (por exemplo, tabelas que viram cards antes de 1024 px). */
+export function useIsBelow(px: number): boolean {
+  return !useQuery(`(min-width: ${px}px)`, true);
+}
+
 /** Preferência do sistema por menos movimento. */
 export function useReducedMotion(): boolean {
   return useQuery('(prefers-reduced-motion: reduce)', false);

@@ -1,7 +1,7 @@
 import { Input } from 'antd';
 import type { ChangeEventHandler, KeyboardEventHandler, ReactNode } from 'react';
 import { AppIcon } from './AppIcon';
-import { MONO_STYLE } from './monoStyle';
+import { NUMERIC_STYLE } from './monoStyle';
 
 export interface AppInputProps {
   readonly value?: string;
@@ -35,7 +35,7 @@ export interface AppInputProps {
 const SIZES = { sm: 'small', md: 'middle', lg: 'large' } as const;
 
 export function AppInput({ size = 'md', mono = false, ...props }: AppInputProps) {
-  return <Input {...props} size={SIZES[size]} style={mono ? MONO_STYLE : undefined} />;
+  return <Input {...props} size={SIZES[size]} style={mono ? NUMERIC_STYLE : undefined} />;
 }
 
 /** Campo de busca com ícone e botão de limpar. */

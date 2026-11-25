@@ -5,8 +5,8 @@ import { AppButton } from '../AppButton';
 import { AppCard } from '../AppCard';
 import { AppFlex } from '../AppLayout';
 import { AppTable, type AppTableColumn } from '../AppTable';
-import { AppText } from '../AppTypography';
 import { useAppColors, useReducedMotion } from '../theme/AppThemeProvider';
+import { FONT_SANS } from '../theme/palette';
 import { echarts } from './echarts';
 
 export type AppChartOption = EChartsCoreOption;
@@ -57,28 +57,30 @@ export function AppChart({
     animation: !reduced,
     animationDuration: 700,
     backgroundColor: 'transparent',
-    textStyle: { fontFamily: 'inherit', color: colors.textMuted },
+    textStyle: { fontFamily: FONT_SANS, color: colors.textMuted },
     ...option,
   };
 
   return (
     <AppCard fullHeight aria-label={title}>
-      <figure style={{ margin: 0 }}>
-        <AppFlex justify="space-between" align="flex-start" gap="middle" wrap>
-          <div>
-            <figcaption style={{ fontWeight: 700, fontSize: 16 }}>{title}</figcaption>
+      <figure style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <AppFlex justify="space-between" align="center" gap="middle" wrap>
+          <figcaption style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.01em' }}>
+            {title}
+          </figcaption>
+          <AppFlex align="center" gap="middle" wrap>
             {legend}
-          </div>
-          <AppButton
-            size="sm"
-            icon={showTable ? 'chart' : 'table'}
-            aria-pressed={showTable}
-            onClick={() => setShowTable((value) => !value)}
-          >
-            {showTable ? 'Ver gráfico' : 'Ver como tabela'}
-          </AppButton>
+            <AppButton
+              size="sm"
+              icon={showTable ? 'chart' : 'table'}
+              aria-pressed={showTable}
+              onClick={() => setShowTable((value) => !value)}
+            >
+              {showTable ? 'Ver gráfico' : 'Ver como tabela'}
+            </AppButton>
+          </AppFlex>
         </AppFlex>
-        <div style={{ marginTop: 16 }}>
+        <div>
           {showTable ? (
             <AppTable
               size="sm"
@@ -111,15 +113,16 @@ export function AppChartLegend({
 }: {
   readonly items: readonly { color: string; label: string }[];
 }) {
+  const colors = useAppColors();
   return (
     <ul
       aria-label="Legenda"
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: '4px 16px',
+        gap: '4px 14px',
         listStyle: 'none',
-        margin: '6px 0 0',
+        margin: 0,
         padding: 0,
       }}
     >
@@ -129,9 +132,9 @@ export function AppChartLegend({
             aria-hidden="true"
             style={{ width: 10, height: 10, borderRadius: 3, background: item.color }}
           />
-          <AppText type="secondary" size="sm">
+          <span style={{ fontSize: 13, fontWeight: 600, color: colors.textMuted }}>
             {item.label}
-          </AppText>
+          </span>
         </li>
       ))}
     </ul>

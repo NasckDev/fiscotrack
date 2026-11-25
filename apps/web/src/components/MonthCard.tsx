@@ -7,6 +7,7 @@ import {
 } from '@fiscotrack/engine';
 import { formatMonthTitle } from '../domain/format';
 import { monthResultCents, monthStatus } from '../domain/monthStatus';
+import { shortSourceTitle } from '../domain/receipt';
 import {
   AppCard,
   AppCol,
@@ -18,9 +19,9 @@ import {
   AppProgress,
   AppRow,
   AppStatus,
-  AppSteps,
   AppText,
   AppTitle,
+  useAppColors,
 } from '../ui';
 
 const SOURCES = new Map(
@@ -33,50 +34,73 @@ const CATEGORY_LABEL: Record<ExplanationStep['category'], string> = {
   TOTAL: 'Total do mês',
 };
 
-/** "Lei nº 11.033/2004 — isenção…" → "Lei nº 11.033/2004". */
-function shortSourceTitle(title: string): string {
-  return title.split(' — ')[0] ?? title;
-}
+const TOTAL_KINDS: ReadonlySet<ExplanationStep['kind']> = new Set(['DARF_DUE', 'DARF_MINIMUM']);
 
-function StepDescription({ step }: { readonly step: ExplanationStep }) {
+function StepSources({ step }: { readonly step: ExplanationStep }) {
+  const colors = useAppColors();
   return (
-    <AppFlex vertical gap="small">
-      <AppText type="secondary">{CATEGORY_LABEL[step.category]}</AppText>
-      <AppText>{step.detail}</AppText>
-      <AppFlex wrap gap="middle">
-        {step.sourceIds.map((id) => {
-          const source = SOURCES.get(id);
-          return source ? (
-            <AppLink key={id} href={source.url} title={source.title}>
-              Fonte: {shortSourceTitle(source.title)} <AppIcon name="external" />
-            </AppLink>
-          ) : null;
-        })}
-      </AppFlex>
+    <AppFlex wrap gap="small">
+      {step.sourceIds.map((id) => {
+        const source = SOURCES.get(id);
+        return source ? (
+          <a
+            key={id}
+            href={source.url}
+            title={source.title}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ft-chip"
+            style={{ background: colors.bgSubtle, color: colors.text, gap: 6 }}
+          >
+            Fonte: {shortSourceTitle(source.title)} <AppIcon name="external" />
+            <span className="sr-only"> (abre em outra aba)</span>
+          </a>
+        ) : null;
+      })}
     </AppFlex>
   );
 }
 
+/** Passo a passo do motor em formato de recibo: separador tracejado e total em 800. */
 function ExplanationSteps({ month }: { readonly month: MonthlyResult }) {
+  const colors = useAppColors();
   return (
     <AppFlex vertical gap="middle">
-      <AppSteps
-        vertical
+      <ol
         aria-label={`Passo a passo de ${formatMonthTitle(month.month)}`}
-        current={month.steps.length}
-        items={month.steps.map((step) => ({
-          status: 'process' as const,
-          title: (
-            <AppFlex gap="middle" justify="space-between" wrap>
-              <span>{step.title}</span>
-              {step.kind !== 'EXEMPTION' && (
-                <AppMoney cents={step.amountCents} signed={step.kind === 'GROSS_RESULT'} strong />
-              )}
-            </AppFlex>
-          ),
-          description: <StepDescription step={step} />,
-        }))}
-      />
+        style={{ listStyle: 'none', margin: 0, padding: 0 }}
+      >
+        {month.steps.map((step, index) => {
+          const isTotal = TOTAL_KINDS.has(step.kind);
+          return (
+            <li
+              key={`${step.kind}-${step.category}-${index}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                gap: '4px 12px',
+                padding: isTotal ? '16px 0 4px' : '12px 0',
+                borderBottom: isTotal ? 'none' : `1.5px dashed ${colors.borderSoft}`,
+              }}
+            >
+              <span style={{ fontWeight: isTotal ? 800 : 700, fontSize: isTotal ? 18 : 15 }}>
+                {step.title}
+              </span>
+              <span style={{ fontSize: isTotal ? 18 : 15, textAlign: 'right' }}>
+                {step.kind !== 'EXEMPTION' && (
+                  <AppMoney cents={step.amountCents} signed={step.kind === 'GROSS_RESULT'} strong />
+                )}
+              </span>
+              <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
+                <AppText type="secondary" size="sm">
+                  {CATEGORY_LABEL[step.category]} · {step.detail}
+                </AppText>
+                <StepSources step={step} />
+              </div>
+            </li>
+          );
+        })}
+      </ol>
       <AppText type="secondary" size="sm">
         Regras aplicadas: {month.ruleSetId}. <AppLink to="/regras">Ver premissas</AppLink>
       </AppText>

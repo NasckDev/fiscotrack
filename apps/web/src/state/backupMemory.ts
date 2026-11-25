@@ -40,3 +40,15 @@ export function shouldRemindBackup(now: Date = new Date()): boolean {
   const last = getLastBackup();
   return last === null || now.getTime() - last.getTime() > BACKUP_REMINDER_DAYS * DAY_MS;
 }
+
+/** Aviso de privacidade com a data do último backup: "Último backup há 2 dias." */
+export function describeLastBackup(last: Date | null, now: Date = new Date()): string {
+  const base = 'Seus dados ficam neste navegador.';
+  if (last === null || Number.isNaN(last.getTime())) return `${base} Nenhum backup feito ainda.`;
+  const startOfDay = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.max(0, Math.round((startOfDay(now) - startOfDay(last)) / DAY_MS));
+  if (days === 0) return `${base} Último backup hoje.`;
+  if (days === 1) return `${base} Último backup ontem.`;
+  return `${base} Último backup há ${days} dias.`;
+}

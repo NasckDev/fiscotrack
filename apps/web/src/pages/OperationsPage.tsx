@@ -306,6 +306,7 @@ function OperationsContent() {
               showTotal={(total, [from, to]) =>
                 `${from}–${to} de ${plural(total, 'operação', 'operações')}`
               }
+              cardsBelow={1024}
               renderCard={(operation) => <OperationCard operation={operation} {...rowActions} />}
               empty={
                 <AppEmpty

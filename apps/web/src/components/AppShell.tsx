@@ -1,19 +1,14 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
-import { NAV_ITEMS, TAB_ITEMS } from '../navigation';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router';
+import { NAV_ITEMS, TAB_ITEMS, TOP_ITEMS } from '../navigation';
+import { useOperations } from '../state/OperationsContext';
+import { EXAMPLE_ID_PREFIX } from '../state/useExampleLoader';
 import { DB_ISSUE_EVENT } from '../storage/operationsRepository';
 import {
   AppAvatar,
   AppButton,
-  AppContainer,
   AppDropdown,
   AppIconButton,
-  AppLayout,
-  AppLayoutContent,
-  AppLayoutHeader,
-  AppLayoutSider,
-  AppMenu,
-  AppStack,
   AppTabBar,
   setTheme,
   useAppColors,
@@ -24,16 +19,15 @@ import {
 } from '../ui';
 import { Disclaimer } from './Disclaimer';
 import { ExampleBanner, FirstVisitLoader } from './ExampleBanner';
-import { Logo, LogoMark } from './Logo';
+import { Logo } from './Logo';
+import { MonthPicker } from './MonthPicker';
 import { Notifications } from './Notifications';
-import { activeKey, useNavMenuItems } from './navMenu';
 
 const ShellOverlays = lazy(() => import('./ShellOverlays'));
 
 const REPOSITORY_URL = 'https://github.com/NasckDev/fiscotrack';
 const GO_SEQUENCE_MS = 1200;
-const SIDER_WIDTH = 256;
-const SIDER_COLLAPSED_WIDTH = 80;
+const MAX_WIDTH = 1320;
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -43,59 +37,6 @@ function isTyping(target: EventTarget | null): boolean {
 interface ShellActions {
   readonly openPalette: () => void;
   readonly openShortcuts: () => void;
-}
-
-function SiderContent({ collapsed }: { readonly collapsed: boolean }) {
-  const { pathname } = useLocation();
-  const colors = useAppColors();
-  const items = useNavMenuItems();
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 12px' }}>
-      <div style={{ padding: '0 8px 20px' }}>
-        <Logo onDark compact={collapsed} />
-      </div>
-      <nav aria-label="Principal">
-        <AppMenu
-          items={items}
-          selectedKey={activeKey(pathname)}
-          theme="dark"
-          collapsed={collapsed}
-        />
-      </nav>
-      {!collapsed && (
-        <div
-          style={{
-            marginTop: 'auto',
-            padding: 14,
-            borderRadius: 14,
-            background: colors.siderSelectedBg,
-            color: colors.siderText,
-            fontSize: 13,
-          }}
-        >
-          <strong style={{ color: colors.siderSelectedText }}>Dados só no navegador</strong>
-          <div style={{ marginTop: 4 }}>
-            Nada é enviado a servidores; sem contas nem telemetria.
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function HeaderSearch({
-  openPalette,
-  wide,
-}: Pick<ShellActions, 'openPalette'> & { readonly wide: boolean }) {
-  if (!wide) return <AppIconButton icon="search" label="Buscar" onClick={openPalette} />;
-  return (
-    <AppButton icon="search" onClick={openPalette} aria-label="Buscar telas, ações e ativos">
-      <span style={{ display: 'inline-flex', gap: 24, color: 'inherit' }}>
-        <span>Buscar…</span>
-        <kbd style={{ fontFamily: 'inherit', fontSize: 12 }}>Ctrl K</kbd>
-      </span>
-    </AppButton>
-  );
 }
 
 function AccountMenu({ openShortcuts }: Pick<ShellActions, 'openShortcuts'>) {
@@ -113,12 +54,6 @@ function AccountMenu({ openShortcuts }: Pick<ShellActions, 'openShortcuts'>) {
       label: 'Importar CSV',
       icon: 'upload',
       onSelect: () => void navigate('/importar'),
-    },
-    {
-      key: 'rules',
-      label: 'Regras e premissas',
-      icon: 'rules',
-      onSelect: () => void navigate('/regras'),
     },
     {
       key: 'keys',
@@ -146,6 +81,7 @@ function AccountMenu({ openShortcuts }: Pick<ShellActions, 'openShortcuts'>) {
           display: 'inline-flex',
           minWidth: 44,
           minHeight: 44,
+          borderRadius: 999,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -153,6 +89,127 @@ function AccountMenu({ openShortcuts }: Pick<ShellActions, 'openShortcuts'>) {
         <AppAvatar initials="VC" label="Você" />
       </button>
     </AppDropdown>
+  );
+}
+
+/** Busca, avisos e tema: os mesmos no desktop e no celular. */
+function HeaderTools({ openPalette }: Pick<ShellActions, 'openPalette'>) {
+  const theme = useTheme();
+  return (
+    <>
+      <AppIconButton
+        icon="search"
+        label="Buscar telas, ações e ativos (Ctrl K)"
+        onClick={openPalette}
+      />
+      <Notifications />
+      <AppIconButton
+        icon={theme === 'dark' ? 'sun' : 'moon'}
+        label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      />
+    </>
+  );
+}
+
+function HomeLink() {
+  return (
+    <Link
+      to="/"
+      aria-label="FiscoTrack, ir para o início"
+      style={{
+        display: 'inline-flex',
+        minHeight: 44,
+        alignItems: 'center',
+        borderRadius: 12,
+        textDecoration: 'none',
+      }}
+    >
+      <Logo />
+    </Link>
+  );
+}
+
+/** Barra superior em pílula: logo, abas, seletor de mês e "Nova operação" (sem menu lateral). */
+function TopBar({ openPalette, openShortcuts }: ShellActions) {
+  const colors = useAppColors();
+  return (
+    <header
+      className="ft-topbar"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '8px 20px',
+        background: colors.bgContainer,
+        borderRadius: 32,
+        padding: '8px 8px 8px 20px',
+      }}
+    >
+      <HomeLink />
+      <nav aria-label="Principal" style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        {TOP_ITEMS.map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.to === '/'} className="ft-nav-link">
+            {item.shortLabel}
+          </NavLink>
+        ))}
+      </nav>
+      <div
+        style={{
+          marginLeft: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <HeaderTools openPalette={openPalette} />
+          <AccountMenu openShortcuts={openShortcuts} />
+        </div>
+        <MonthPicker />
+        <AppButton variant="primary" size="lg" icon="plus" to="/operacoes?nova=1">
+          Nova operação
+        </AppButton>
+      </div>
+    </header>
+  );
+}
+
+/** Celular e tablet: logo e ferramentas na primeira linha; mês e "Nova operação" na segunda. */
+function CompactBar({
+  openPalette,
+  openMenu,
+}: Pick<ShellActions, 'openPalette'> & { readonly openMenu: () => void }) {
+  const colors = useAppColors();
+  return (
+    <header
+      className="ft-topbar"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        background: colors.bgContainer,
+        borderRadius: 28,
+        padding: '8px 8px 10px 16px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <HomeLink />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <HeaderTools openPalette={openPalette} />
+          <AppIconButton icon="menu" label="Abrir menu" aria-haspopup="dialog" onClick={openMenu} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingRight: 2 }}>
+        <MonthPicker />
+        <div style={{ flex: '1 1 auto' }}>
+          <AppButton variant="primary" size="lg" icon="plus" to="/operacoes?nova=1" block>
+            Nova operação
+          </AppButton>
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -205,14 +262,35 @@ function useGlobalShortcuts({ openPalette, openShortcuts }: ShellActions) {
   }, [navigate, openPalette, openShortcuts]);
 }
 
+function ShellFooter() {
+  const colors = useAppColors();
+  const { operations } = useOperations();
+  const hasExample = operations.some((operation) => operation.id.startsWith(EXAMPLE_ID_PREFIX));
+  return (
+    <footer style={{ fontSize: 13, color: colors.textMuted }}>
+      <p style={{ margin: 0 }}>
+        {hasExample ? 'Dados de exemplo. ' : ''}Esta ferramenta não substitui a orientação de um
+        contador. Projeto open source educacional, licença MIT,{' '}
+        <a
+          href={REPOSITORY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: colors.text, fontWeight: 700, textDecoration: 'underline' }}
+        >
+          código no GitHub
+        </a>
+        .
+      </p>
+    </footer>
+  );
+}
+
 export function AppShell({ children }: { readonly children: ReactNode }) {
   const screens = useBreakpoints();
   const isDesktop = Boolean(screens.lg);
   const isPhone = !screens.md;
   const colors = useAppColors();
-  const theme = useTheme();
   const toasts = useToasts();
-  const [collapsed, setCollapsed] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -237,100 +315,46 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
   useGlobalShortcuts({ openPalette, openShortcuts });
 
   return (
-    <AppLayout style={{ minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', background: colors.bgLayout, color: colors.text }}>
       <a href="#conteudo" className="skip-link">
         Pular para o conteúdo
       </a>
       <ScrollToTop />
-      {isDesktop && (
-        <AppLayoutSider
-          width={SIDER_WIDTH}
-          collapsedWidth={SIDER_COLLAPSED_WIDTH}
-          collapsed={collapsed}
-          trigger={null}
-          style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'auto' }}
-        >
-          <SiderContent collapsed={collapsed} />
-        </AppLayoutSider>
-      )}
-      <AppLayout>
-        <AppLayoutHeader
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 50,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: isPhone ? '0 12px' : '0 24px',
-            borderBottom: `1px solid ${colors.borderSoft}`,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {isDesktop ? (
-              <AppIconButton
-                icon="menu"
-                label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-                aria-pressed={collapsed}
-                onClick={() => setCollapsed((value) => !value)}
-              />
-            ) : (
-              <>
-                <AppIconButton
-                  icon="menu"
-                  label="Abrir menu"
-                  aria-haspopup="dialog"
-                  onClick={() => setIsMenuOpen(true)}
-                />
-                <LogoMark size={30} />
-              </>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <HeaderSearch openPalette={openPalette} wide={isDesktop} />
-            <Notifications />
-            <AppIconButton
-              icon={theme === 'dark' ? 'sun' : 'moon'}
-              label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            />
-            <AccountMenu openShortcuts={openShortcuts} />
-          </div>
-        </AppLayoutHeader>
+      <div
+        style={{
+          maxWidth: MAX_WIDTH,
+          margin: '0 auto',
+          padding: isPhone
+            ? '12px 14px calc(96px + env(safe-area-inset-bottom))'
+            : '20px clamp(14px, 3vw, 40px) 40px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: isPhone ? 18 : 22,
+        }}
+      >
+        {isDesktop ? (
+          <TopBar openPalette={openPalette} openShortcuts={openShortcuts} />
+        ) : (
+          <CompactBar openPalette={openPalette} openMenu={() => setIsMenuOpen(true)} />
+        )}
         <FirstVisitLoader />
-        <AppLayoutContent
+        <main
           id="conteudo"
           tabIndex={-1}
           style={{
             outline: 'none',
-            paddingBottom: isPhone ? 'calc(72px + env(safe-area-inset-bottom))' : 0,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
           }}
         >
-          <AppContainer>
-            <AppStack gap="small">
-              <Disclaimer />
-              <ExampleBanner />
-            </AppStack>
-            <div style={{ height: 16 }} />
-            {children}
-          </AppContainer>
-          <footer style={{ textAlign: 'center', padding: '0 16px 24px' }}>
-            <div style={{ borderTop: `1px solid ${colors.borderSoft}`, margin: '0 0 16px' }} />
-            <span style={{ fontSize: 13, color: colors.textMuted }}>
-              Projeto open source educacional · MIT ·{' '}
-            </span>
-            <a
-              href={REPOSITORY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: colors.primary, textDecoration: 'underline' }}
-            >
-              GitHub
-            </a>
-          </footer>
-        </AppLayoutContent>
-      </AppLayout>
+          <Disclaimer />
+          <ExampleBanner />
+          <div>{children}</div>
+        </main>
+        <ShellFooter />
+      </div>
       {isPhone && (
         <AppTabBar
           aria-label="Principal"
@@ -354,6 +378,6 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
           />
         </Suspense>
       )}
-    </AppLayout>
+    </div>
   );
 }

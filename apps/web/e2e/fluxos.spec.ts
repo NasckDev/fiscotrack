@@ -283,3 +283,32 @@ test('geometria: diálogos cabem na tela e o foco volta para quem abriu', async 
   await expectInsideViewport(page, confirm);
   await expect(confirm.getByRole('button', { name: 'Cancelar' })).toBeFocused();
 });
+
+/** Larguras exigidas: nada pode rolar na horizontal (tabelas largas rolam dentro da própria caixa). */
+const WIDTHS = [320, 375, 390, 768, 1024, 1280, 1440, 1920] as const;
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`layout: sem rolagem horizontal em 320 a 1920 px em todas as telas, tema ${theme}`, async ({
+    page,
+    isMobile,
+  }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await openWithExample(page);
+    const overflow: string[] = [];
+    for (const [name, hash] of ROUTES) {
+      await gotoRoute(page, hash);
+      // No projeto do celular (toque, alvos de 44 px) só as larguras de celular.
+      for (const width of isMobile ? WIDTHS.filter((value) => value <= 390) : WIDTHS) {
+        await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+        await page.waitForTimeout(150);
+        const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        }));
+        if (scrollWidth > clientWidth)
+          overflow.push(`${name} em ${width} px: ${scrollWidth} > ${clientWidth}`);
+      }
+    }
+    expect(overflow).toEqual([]);
+  });
+}

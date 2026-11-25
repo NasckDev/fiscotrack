@@ -44,10 +44,10 @@ function Illustration() {
       <rect x="74" y="66" width="14" height="30" rx="4" fill={c.gainFill} opacity="0.65" />
       <rect x="96" y="72" width="14" height="24" rx="4" fill={c.lossFill} opacity="0.7" />
       <rect x="118" y="54" width="14" height="42" rx="4" fill={c.gainFill} />
-      <circle cx="148" cy="46" r="8" fill={c.darfFill} />
+      <circle cx="148" cy="46" r="8" fill={c.lime} />
       <path
         d="M144.5 46l2.4 2.4 4.2-4.6"
-        stroke={c.bgContainer}
+        stroke={c.onLime}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -83,7 +83,14 @@ export function AppEmpty({
       description={
         <div>
           <Title
-            style={{ display: 'block', fontSize: 16, fontWeight: 700, margin: 0, color: c.text }}
+            style={{
+              display: 'block',
+              fontSize: titleAs === 'h1' ? 'clamp(28px, 4vw, 36px)' : 16,
+              fontWeight: 800,
+              letterSpacing: titleAs === 'h1' ? '-0.03em' : undefined,
+              margin: titleAs === 'h1' ? '8px 0 6px' : 0,
+              color: c.text,
+            }}
           >
             {title}
           </Title>

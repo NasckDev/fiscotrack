@@ -2,7 +2,7 @@ import { formatBRL } from '@fiscotrack/engine';
 import { useParams } from 'react-router';
 import { DataGate } from '../components/DataGate';
 import { PageHeader } from '../components/PageHeader';
-import { formatCompactBRL, formatDate, formatDateShort } from '../domain/format';
+import { formatAxisBRL, formatDate, formatDateShort } from '../domain/format';
 import { useFinance } from '../state/useFinance';
 import {
   AppButton,
@@ -73,7 +73,7 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
         }
       />
       <AppRow>
-        <AppCol xs={12} lg={6}>
+        <AppCol xs={24} sm={12} lg={6}>
           <AppCard fullHeight>
             <AppStatistic
               title="Preço médio"
@@ -83,12 +83,12 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
             />
           </AppCard>
         </AppCol>
-        <AppCol xs={12} lg={6}>
+        <AppCol xs={24} sm={12} lg={6}>
           <AppCard fullHeight>
             <AppStatistic title="Quantidade" icon="wallet" value={holding.quantity} />
           </AppCard>
         </AppCol>
-        <AppCol xs={12} lg={6}>
+        <AppCol xs={24} sm={12} lg={6}>
           <AppCard fullHeight>
             <AppStatistic
               title="Custo total"
@@ -98,7 +98,7 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
             />
           </AppCard>
         </AppCol>
-        <AppCol xs={12} lg={6}>
+        <AppCol xs={24} sm={12} lg={6}>
           <AppCard fullHeight>
             <AppStatistic
               title="Resultado realizado"
@@ -135,7 +135,7 @@ function AssetContent({ ticker }: { readonly ticker: string }) {
           name="Preço médio"
           values={points.map((point) => point.value)}
           formatValue={asBRL}
-          formatAxis={formatCompactBRL}
+          formatAxis={formatAxisBRL}
           table={{
             head: ['Data', 'Preço médio'],
             rows: points.map((point) => [

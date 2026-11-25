@@ -43,7 +43,7 @@ export function AppModal({
       destroyOnHidden
       loading={loading}
       closable={{ 'aria-label': 'Fechar' }}
-      maskClosable
+      mask={{ closable: true }}
     >
       {children}
     </Modal>

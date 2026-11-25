@@ -172,7 +172,7 @@ function DarfsContent() {
       ) : (
         <>
           <AppRow>
-            <AppCol xs={12}>
+            <AppCol xs={24} sm={12}>
               <AppCard fullHeight>
                 <AppStatistic
                   title="Em aberto"
@@ -183,7 +183,7 @@ function DarfsContent() {
                 />
               </AppCard>
             </AppCol>
-            <AppCol xs={12}>
+            <AppCol xs={24} sm={12}>
               <AppCard fullHeight>
                 <AppStatistic
                   title="Já pago"
@@ -201,6 +201,7 @@ function DarfsContent() {
                 columns={columns}
                 data={sorted}
                 rowKey={(entry) => entry.month}
+                cardsBelow={1024}
                 renderCard={(entry) => (
                   <AppStack gap="small">
                     <EntryDetails entry={entry} today={today} />

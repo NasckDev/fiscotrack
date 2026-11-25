@@ -1,60 +1,43 @@
-import { useAppColors } from '../ui';
+import { useAppColors, useTheme } from '../ui';
 
 interface LogoMarkProps {
   readonly size?: number;
-  /** Cores sobre fundo escuro (Sider). */
-  readonly onDark?: boolean;
 }
 
-/** Marca do FiscoTrack: linha de resultado ascendente sobre um quadrado verde-floresta. */
-export function LogoMark({ size = 32, onDark = false }: LogoMarkProps) {
+/** Marca do FiscoTrack: um "F" de livro-caixa em lima, com o ponto do saldo, sobre verde-floresta. */
+export function LogoMark({ size = 30 }: LogoMarkProps) {
   const colors = useAppColors();
-  const box = onDark ? colors.heroText : colors.primary;
-  const stroke = onDark ? '#0e3b2e' : colors.onPrimary;
+  const isDark = useTheme() === 'dark';
+  // No escuro o quadrado verde some no fundo; a marca inverte para lima com traço floresta.
+  const box = isDark ? colors.lime : colors.hero;
+  const ink = isDark ? colors.onLime : colors.lime;
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="9" fill={box} />
+    <svg width={size} height={size} viewBox="0 0 30 30" aria-hidden="true" focusable="false">
+      <rect width="30" height="30" rx="10" fill={box} />
       <path
-        d="M7 24h18"
-        stroke={stroke}
-        strokeOpacity="0.4"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M7 19l6-6 4 4 8-8"
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2.75"
+        d="M9 20.5V9.5h9M9 15h6.5"
+        stroke={ink}
+        strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
+        fill="none"
       />
-      <circle cx="25" cy="9" r="2.6" fill={colors.darfFill} />
+      <circle cx="21" cy="20" r="2.2" fill={ink} />
     </svg>
   );
 }
 
-export function Logo({
-  onDark = false,
-  compact = false,
-}: {
-  readonly onDark?: boolean;
-  readonly compact?: boolean;
-}) {
+export function Logo({ compact = false }: { readonly compact?: boolean }) {
   const colors = useAppColors();
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-      <LogoMark onDark={onDark} />
+      <LogoMark />
       {!compact && (
         <span
-          style={{
-            fontSize: 19,
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: onDark ? colors.siderSelectedText : colors.text,
-          }}
+          className="ft-logo-text"
+          style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: colors.text }}
         >
-          Fisco<span style={{ color: onDark ? colors.darfFill : colors.primary }}>Track</span>
+          FiscoTrack
         </span>
       )}
     </span>

@@ -14,22 +14,28 @@ interface AppTabBarProps {
   readonly 'aria-label': string;
 }
 
-/** Barra de navegação inferior do celular: alvos de 44 px ou mais e área segura do aparelho. */
+/**
+ * Barra de navegação inferior do celular, flutuante e arredondada como a barra superior: alvos de
+ * 56 px, aba ativa com a pílula em tinta e área segura do aparelho respeitada.
+ */
 export function AppTabBar({ items, ...props }: AppTabBarProps) {
   const { token } = theme.useToken();
   const colors = useAppColors();
   return (
     <nav
       {...props}
+      className="ft-tabbar"
       style={{
         position: 'fixed',
-        insetInline: 0,
-        bottom: 0,
+        insetInline: 10,
+        bottom: 'calc(10px + env(safe-area-inset-bottom))',
         zIndex: 100,
         display: 'flex',
+        padding: 4,
+        borderRadius: 28,
         background: colors.bgContainer,
-        borderTop: `1px solid ${colors.borderSoft}`,
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        border: `1px solid ${colors.borderSoft}`,
+        boxShadow: token.boxShadowSecondary,
       }}
     >
       {items.map((item) => (
@@ -39,24 +45,42 @@ export function AppTabBar({ items, ...props }: AppTabBarProps) {
           end={item.to === '/'}
           style={({ isActive }) => ({
             flex: 1,
+            minWidth: 0,
             minHeight: 56,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 2,
+            gap: 3,
             fontSize: 11,
-            fontWeight: 600,
+            fontWeight: isActive ? 800 : 600,
             textDecoration: 'none',
-            color: isActive ? colors.primary : colors.textMuted,
-            borderTop: `3px solid ${isActive ? colors.primary : 'transparent'}`,
+            borderRadius: 22,
+            color: isActive ? colors.text : colors.textMuted,
             transition: `color ${token.motionDurationFast}`,
           })}
         >
-          <span style={{ fontSize: 20, lineHeight: 1 }}>
-            <AppIcon name={item.icon} />
-          </span>
-          {item.label}
+          {({ isActive }) => (
+            <>
+              <span
+                style={{
+                  fontSize: 18,
+                  lineHeight: 1,
+                  width: 44,
+                  height: 26,
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: isActive ? colors.navActiveBg : 'transparent',
+                  color: isActive ? colors.navActiveText : 'inherit',
+                }}
+              >
+                <AppIcon name={item.icon} />
+              </span>
+              {item.label}
+            </>
+          )}
         </NavLink>
       ))}
     </nav>

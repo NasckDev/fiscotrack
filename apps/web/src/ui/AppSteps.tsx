@@ -31,9 +31,9 @@ export function AppSteps({
     <div role="group" {...props}>
       <Steps
         current={current}
-        size={size === 'sm' ? 'small' : 'default'}
+        size={size === 'sm' ? 'small' : 'medium'}
         orientation={isMobile || vertical ? 'vertical' : 'horizontal'}
-        items={items.map((item) => ({ ...item }))}
+        items={items.map(({ description, ...item }) => ({ ...item, content: description }))}
       />
     </div>
   );

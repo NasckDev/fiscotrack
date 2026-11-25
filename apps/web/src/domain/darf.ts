@@ -100,3 +100,11 @@ export function dueCountdown(dueDate: string, today: string): { text: string; ur
 export function toPaidMarks(paid: ReadonlyMap<string, number | null>): readonly PaidMark[] {
   return [...paid].map(([month, amountCents]) => ({ month, amountCents }));
 }
+
+/** Selo do cartão herói: "Faltam 5 dias", "Falta 1 dia", "Vence hoje" ou "Venceu há 2 dias". */
+export function dueBadge(dueDate: string, today: string): { text: string; overdue: boolean } {
+  const days = daysBetween(today, dueDate);
+  if (days < 0) return { text: dueCountdown(dueDate, today).text, overdue: true };
+  if (days === 0) return { text: 'Vence hoje', overdue: false };
+  return { text: days === 1 ? 'Falta 1 dia' : `Faltam ${days} dias`, overdue: false };
+}

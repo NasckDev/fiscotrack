@@ -1,6 +1,6 @@
 import { DatePicker } from 'antd';
 import dayjs from 'dayjs';
-import { MONO_STYLE } from './monoStyle';
+import { NUMERIC_STYLE } from './monoStyle';
 
 const ISO = 'YYYY-MM-DD';
 
@@ -29,7 +29,7 @@ export function AppDatePicker({ value, onChange, max, ...props }: AppDatePickerP
       allowClear
       disabledDate={max ? (date) => date.isAfter(dayjs(max, ISO), 'day') : undefined}
       onChange={(date) => onChange?.(date ? date.format(ISO) : null)}
-      style={{ width: '100%', ...MONO_STYLE }}
+      style={{ width: '100%', ...NUMERIC_STYLE }}
     />
   );
 }

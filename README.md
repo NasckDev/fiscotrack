@@ -15,26 +15,30 @@ fonte legal de cada passo. Tudo roda no navegador: seus dados não saem do seu a
 
 ## Telas
 
-Interface em Ant Design 6 com a identidade do FiscoTrack (verde-floresta, creme, menta, rosa e
-dourado), claro e escuro, 1440 px no desktop e 390 px no celular.
+Interface em Ant Design 6 com a identidade "livro-caixa moderno": verde-floresta, lima para o valor
+que pede ação e laranja-terra para prejuízo, números grandes em Manrope e cartões de 28 px. Claro e
+escuro, 1440 px no desktop e 390 px no celular.
 
-| Início (claro)                                                                                       | Início (escuro)                                                                  |
-| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| ![Início com próximo DARF, patrimônio e gráficos](docs/prints/fiscotrack-painel-mensal-desktop.webp) | ![Início no tema escuro](docs/prints/fiscotrack-painel-escuro-desktop.webp)      |
-| ![Carteira com posições e preço médio](docs/prints/fiscotrack-carteira-desktop.webp)                 | ![Operações com filtros e edição](docs/prints/fiscotrack-operacoes-desktop.webp) |
-| ![Apuração mensal com a conta explicada](docs/prints/fiscotrack-explicacao-calculo-desktop.webp)     | ![DARFs com status](docs/prints/fiscotrack-darfs-desktop.webp)                   |
-| ![Importação de CSV com mapeamento de colunas](docs/prints/fiscotrack-importacao-csv-desktop.webp)   | ![Regras versionadas e fontes](docs/prints/fiscotrack-regras-desktop.webp)       |
+| Início (claro)                                                                                                | Início (escuro)                                                                  |
+| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| ![Início com próximo DARF, patrimônio, resultado e recibo](docs/prints/fiscotrack-painel-mensal-desktop.webp) | ![Início no tema escuro](docs/prints/fiscotrack-painel-escuro-desktop.webp)      |
+| ![Carteira com posições e preço médio](docs/prints/fiscotrack-carteira-desktop.webp)                          | ![Operações com filtros e edição](docs/prints/fiscotrack-operacoes-desktop.webp) |
+| ![Apuração mensal com a conta explicada](docs/prints/fiscotrack-explicacao-calculo-desktop.webp)              | ![DARFs com status](docs/prints/fiscotrack-darfs-desktop.webp)                   |
+| ![Importação de CSV com mapeamento de colunas](docs/prints/fiscotrack-importacao-csv-desktop.webp)            | ![Regras versionadas e fontes](docs/prints/fiscotrack-regras-desktop.webp)       |
 
-No celular (390x844): barra inferior, listas de cards no lugar das tabelas e formulário em gaveta.
+No celular (390x844): uma coluna, barra inferior flutuante, listas de cards no lugar das tabelas e
+formulário em gaveta.
 
 <img src="docs/prints/fiscotrack-painel-mensal-mobile.webp" alt="Início no celular" width="260">
 <img src="docs/prints/fiscotrack-operacoes-mobile.webp" alt="Operações no celular" width="260">
 
 ## O que faz
 
-- **Início:** próximo DARF com contagem até o vencimento, patrimônio investido, resultado do ano,
-  resultado mensal em barras, resultado acumulado em linha e alocação por ativo em rosca. Todo
-  gráfico tem alternativa em tabela e descrição para leitor de tela.
+- **Início:** próximo DARF em destaque com os dias que faltam, "Marcar como pago" e "Por que deu esse
+  valor?"; patrimônio investido com barra de alocação por ativo; resultado do ano; resultado por mês
+  em barras (lucro e prejuízo, com legenda em texto e "Ver como tabela"); e o recibo da apuração
+  com as linhas do cálculo, o total e as fontes legais. Todo gráfico tem tabela equivalente e
+  descrição para leitor de tela.
 - **Carteira:** posições com preço médio, quantidade, custo e resultado realizado; detalhe do ativo
   com histórico e evolução do preço médio.
 - **Operações:** busca e filtros, incluir, **editar**, excluir com **desfazer**, exportar CSV.
@@ -62,18 +66,23 @@ No celular (390x844): barra inferior, listas de cards no lugar das tabelas e for
 - **Padrão de UI:** Ant Design 6 e Apache ECharts 6, sempre através dos wrappers de
   `apps/web/src/ui/` ([ADR 0009](docs/adr/0009-ui-com-ant-design-echarts-e-wrappers.md)). Uma regra
   de lint (`no-restricted-imports`) barra `antd`, `@ant-design/*` e `echarts*` fora dessa pasta.
-- **Tema central** (`src/ui/theme`): a paleta da marca (verde-floresta `#0E3B2E`, creme `#F7F6F1`,
-  menta para ganho, rosa para perda e dourado para DARF) vira tokens do Ant Design, claro e escuro com
-  `theme.darkAlgorithm`. Manrope na interface e **JetBrains Mono tabular nos valores** (fontes
-  auto-hospedadas, sem requisição externa).
-- **Contraste AA calculado** nos dois temas: `test/contrast.test.ts` confere 90 pares de texto,
+- **Tema central** (`src/ui/theme`, [ADR 0010](docs/adr/0010-identidade-livro-caixa-moderno.md)):
+  tinta `#0F2A1F`, verde-floresta `#123D2C`, lima `#D4F25A` (só sobre o verde ou como selo),
+  laranja-terra `#C2662D` para prejuízo e fundo `#EEF1EC` viram tokens do Ant Design (raio 14,
+  botões em pílula), claro e escuro com `theme.darkAlgorithm`; os mesmos valores existem como
+  variáveis `--ft-*` em `src/index.css`. **Manrope em tudo, com algarismos tabulares nos valores**
+  (fonte auto-hospedada, sem requisição externa).
+- **Casca:** barra superior em pílula (abas, busca, avisos, tema, seletor de mês e "Nova operação"),
+  sem menu lateral, e o aviso "Seus dados ficam neste navegador" com a data do último backup.
+- **Contraste AA calculado** nos dois temas: `test/contrast.test.ts` confere 86 pares de texto,
   interface e gráficos (texto ≥ 4,5:1; interface ≥ 3:1) a partir do mesmo arquivo de paleta que gera
   o tema.
 - **Teclado e leitor de tela:** foco visível, link "Pular para o conteúdo", diálogos do Ant Design
   com foco preso, Esc e retorno do foco, erros ligados ao campo, avisos com `role`, selos de status
   sempre com ícone e texto, gráficos com descrição e **tabela equivalente** ("Ver como tabela").
-- **Celular:** menu lateral vira gaveta, barra inferior com `safe-area-inset`, tabelas viram listas de
-  cards, formulário numa gaveta inferior com ações fixas e alvos de 44 px (`controlHeight`).
+- **Celular:** barra superior compacta com menu em gaveta, barra inferior flutuante com
+  `safe-area-inset`, tabelas viram listas de cards, formulário numa gaveta inferior com ações fixas e
+  alvos de 44 px (`controlHeight` e `pointer: coarse`).
 - **Movimento** (contador do DARF, gráficos que se desenham, transições do Ant Design) desligado com
   `prefers-reduced-motion`.
 - **axe-core** sem violações nas 9 telas, nos dois temas, em 360 e 1440 px (E2E), além de diálogo
@@ -204,25 +213,26 @@ mapeamento antes de importar.
 
 ## Testes e desempenho
 
-| Verificação                                  | Resultado                                                                                                                                   |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Testes do motor (Vitest, table-driven)       | 73 passando (o motor e seus testes não mudaram)                                                                                             |
-| Testes da web (Vitest + Testing Library)     | 197 passando: domínio, fluxos de interface (26 de componente) e 90 pares de contraste AA                                                    |
-| E2E (Playwright, desktop 1440 e celular 360) | 26 execuções (13 cenários nos dois formatos): 24 passam e 2 são pulados de propósito (atalhos de teclado só no desktop, menu só no celular) |
-| Acessibilidade (axe, WCAG 2.2 AA)            | 0 violações nas 9 telas, tema claro e escuro, em 360 e 1440 px, com diálogo aberto, paleta de comandos e estado vazio                       |
-| Geometria dos diálogos (E2E)                 | Modal, gaveta e confirmação cabem na viewport, com o botão de salvar visível, e o foco volta para quem abriu                                |
-| Stories (Storybook 10 + addon a11y)          | Todos os wrappers, com estados e controles; `build-storybook` no CI                                                                         |
+| Verificação                                  | Resultado                                                                                                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Testes do motor (Vitest, table-driven)       | 73 passando (o motor e seus testes não mudaram)                                                                                                                                            |
+| Testes da web (Vitest + Testing Library)     | 203 passando: domínio (inclui o recibo do início, prazo do DARF, saudação e aviso de backup), fluxos de interface (26 de componente) e 86 pares de contraste AA                            |
+| E2E (Playwright, desktop 1440 e celular 360) | 30 execuções (15 cenários nos dois formatos): 28 passam e 2 são pulados de propósito (atalhos de teclado só no desktop, menu só no celular)                                                |
+| Acessibilidade (axe, WCAG 2.2 AA)            | 0 violações nas 9 telas, tema claro e escuro, em 360 e 1440 px, com diálogo aberto, paleta de comandos e estado vazio                                                                      |
+| Geometria dos diálogos (E2E)                 | Modal, gaveta e confirmação cabem na viewport, com o botão de salvar visível, e o foco volta para quem abriu                                                                               |
+| Sem rolagem horizontal (E2E)                 | As 9 telas em 320, 375, 390, 768, 1024, 1280, 1440 e 1920 px, claro e escuro: `scrollWidth <= clientWidth` (tabelas largas viram cards abaixo de 1024 px ou rolam dentro da própria caixa) |
+| Stories (Storybook 10 + addon a11y)          | 118 stories em 34 arquivos: todos os wrappers, com estados e controles, e os cartões do início (próximo DARF e recibo); `build-storybook` no CI                                            |
 
 ### Bundle: antes e depois
 
 Medido no build portátil (`apps/web/dist-portable`), só o JavaScript e o CSS que a primeira tela
 carrega (os chunks listados no `index.html`):
 
-| Medida                                        | Versão com Tailwind + Recharts | Ant Design, primeira versão   | **Ant Design, otimizado** |
-| --------------------------------------------- | ------------------------------ | ----------------------------- | ------------------------- |
-| JS inicial                                    | 430 kB (140 kB gzip)           | 1.442 kB (455 kB gzip)        | **728 kB (240 kB gzip)**  |
-| CSS inicial                                   | 49 kB (14 kB gzip)             | 10 kB (6 kB gzip)             | **10 kB (6 kB gzip)**     |
-| Gráficos (só com a tela de início e do ativo) | Recharts, ~412 kB              | ECharts, 592 kB (202 kB gzip) | 592 kB (200 kB gzip)      |
+| Medida                                        | Versão com Tailwind + Recharts | Ant Design, primeira versão   | Ant Design, otimizado | **Livro-caixa moderno (atual)**  |
+| --------------------------------------------- | ------------------------------ | ----------------------------- | --------------------- | -------------------------------- |
+| JS inicial                                    | 430 kB (140 kB gzip)           | 1.442 kB (455 kB gzip)        | 728 kB (240 kB gzip)  | **731 kB (240 kB gzip)**         |
+| CSS inicial                                   | 49 kB (14 kB gzip)             | 10 kB (6 kB gzip)             | 10 kB (6 kB gzip)     | **8 kB (5 kB gzip)**, só Manrope |
+| Gráficos (só com a tela de início e do ativo) | Recharts, ~412 kB              | ECharts, 592 kB (202 kB gzip) | 592 kB (200 kB gzip)  | 592 kB (202 kB gzip)             |
 
 O que estava errado na primeira versão: o pacote `apps/web` não declarava `"sideEffects"`, então o
 bundler tratava todo arquivo de `src/ui` como tendo efeito colateral e levava o barrel inteiro
@@ -262,7 +272,7 @@ Versões exatas no `package.json`; `npm audit` sem vulnerabilidade alta ou crít
 | react-router 8.5.2                                  | Rotas por hash                           | MIT                    |
 | zod 4.6.7                                           | Validação de CSV, backup e formulário    | MIT                    |
 | idb 8.0.4                                           | IndexedDB                                | ISC (permissiva)       |
-| @fontsource-variable/manrope, jetbrains-mono 5.3.0  | Fontes auto-hospedadas                   | OFL-1.1 (fontes)       |
+| @fontsource-variable/manrope 5.3.0                  | Fonte auto-hospedada                     | OFL-1.1 (fonte)        |
 | storybook, @storybook/react-vite, addon-a11y 10.6.8 | Storybook (desenvolvimento)              | MIT                    |
 | rollup-plugin-visualizer 7.1.3                      | Análise do bundle (desenvolvimento)      | MIT                    |
 | @playwright/test 1.65.1                             | E2E (desenvolvimento)                    | Apache-2.0             |

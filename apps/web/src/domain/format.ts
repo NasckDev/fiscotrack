@@ -71,3 +71,26 @@ export function plural(count: number, one: string, many: string): string {
 export function pluralWord(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
 }
+
+/** Saudação pela hora local: "Bom dia" (5h–11h), "Boa tarde" (12h–17h) ou "Boa noite". */
+export function greeting(now: Date = new Date()): string {
+  const hour = now.getHours();
+  if (hour >= 5 && hour < 12) return 'Bom dia';
+  if (hour >= 12 && hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+const AXIS_BRL_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Eixo de preço: abaixo de R$ 1.000 mostra os centavos (preços de ação variam pouco e a forma
+ * compacta repetia "R$ 61" em todas as linhas); acima disso, moeda compacta.
+ */
+export function formatAxisBRL(reais: number): string {
+  return Math.abs(reais) < 1000 ? AXIS_BRL_FORMATTER.format(reais) : formatCompactBRL(reais);
+}

@@ -1,5 +1,5 @@
 import { useAppColors } from '../theme/AppThemeProvider';
-import { FONT_MONO } from '../theme/palette';
+import { FONT_SANS } from '../theme/palette';
 import type { Palette } from '../theme/palette';
 import { AppChart, AppChartLegend, type AppChartTable } from './AppChart';
 
@@ -21,7 +21,7 @@ function tooltipHtml(title: string, rows: readonly TooltipRow[]): string {
         `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">` +
         `<span style="width:10px;height:10px;border-radius:3px;background:${row.color}"></span>` +
         `<span style="flex:1">${escapeHtml(row.label)}</span>` +
-        `<span style="font-family:${FONT_MONO};font-variant-numeric:tabular-nums;font-weight:700">${escapeHtml(row.value)}</span></div>`,
+        `<span style="font-variant-numeric:tabular-nums;font-weight:800">${escapeHtml(row.value)}</span></div>`,
     )
     .join('');
   return `<div style="min-width:170px"><div style="font-weight:700">${escapeHtml(title)}</div>${lines}</div>`;
@@ -32,17 +32,17 @@ function tooltipBase(colors: Palette) {
     backgroundColor: colors.bgElevated,
     borderColor: colors.borderSoft,
     borderWidth: 1,
-    padding: 12,
-    textStyle: { color: colors.text, fontSize: 13 },
-    extraCssText: 'border-radius:12px;box-shadow:0 8px 24px rgb(0 0 0 / 0.18);',
+    padding: [12, 14],
+    textStyle: { color: colors.text, fontSize: 13, fontFamily: FONT_SANS },
+    extraCssText: 'border-radius:16px;box-shadow:0 12px 32px rgb(15 42 31 / 0.16);',
   };
 }
 
 function axisBase(colors: Palette) {
   return {
-    axisLine: { lineStyle: { color: colors.chartGrid } },
+    axisLine: { lineStyle: { color: colors.chartGrid, width: 1.5 } },
     axisTick: { show: false },
-    axisLabel: { color: colors.textMuted, fontSize: 12 },
+    axisLabel: { color: colors.textMuted, fontSize: 13, fontWeight: 600, margin: 14 },
   };
 }
 
@@ -71,6 +71,8 @@ interface AppBarChartProps extends Common {
   readonly formatValue: (value: number) => string;
   readonly formatAxis: (value: number) => string;
   readonly legend: readonly { color: string; label: string }[];
+  /** Esconde o eixo de valores (só a linha do zero), como no cartão do início. */
+  readonly minimal?: boolean;
 }
 
 export function AppBarChart({
@@ -80,15 +82,16 @@ export function AppBarChart({
   formatValue,
   formatAxis,
   legend,
+  minimal = false,
   ...common
 }: AppBarChartProps) {
   const colors = useAppColors();
   const option = {
-    grid: { top: 16, right: 8, bottom: 8, left: 8, containLabel: true },
+    grid: { top: 16, right: 8, bottom: 4, left: minimal ? 0 : 8, containLabel: true },
     tooltip: {
       ...tooltipBase(colors),
       trigger: 'axis',
-      axisPointer: { type: 'shadow', shadowStyle: { color: colors.primarySurface, opacity: 0.6 } },
+      axisPointer: { type: 'shadow', shadowStyle: { color: colors.bgSubtle, opacity: 0.8 } },
       formatter: (params: unknown) => {
         const first = (params as { dataIndex: number }[])[0];
         const index = first?.dataIndex ?? 0;
@@ -103,19 +106,36 @@ export function AppBarChart({
         );
       },
     },
-    xAxis: { type: 'category', data: [...categories], ...axisBase(colors) },
+    xAxis: {
+      type: 'category',
+      data: [...categories],
+      ...axisBase(colors),
+      // A linha do zero vem da marcação abaixo; os meses ficam sempre no pé do gráfico.
+      axisLine: { show: false, onZero: false },
+    },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: colors.textMuted, fontSize: 12, formatter: formatAxis },
-      splitLine: { lineStyle: { color: colors.chartGrid } },
+      axisLabel: { show: !minimal, color: colors.textMuted, fontSize: 12, formatter: formatAxis },
+      splitLine: { show: !minimal, lineStyle: { color: colors.chartGrid, type: 'dashed' } },
     },
-    series: series.map((item) => ({
+    series: series.map((item, seriesIndex) => ({
       name: item.name,
       type: 'bar',
-      barMaxWidth: 28,
-      itemStyle: { borderRadius: [6, 6, 0, 0] },
+      barMaxWidth: 46,
+      barCategoryGap: '38%',
+      itemStyle: { borderRadius: 6 },
+      markLine:
+        seriesIndex === 0
+          ? {
+              silent: true,
+              symbol: 'none',
+              label: { show: false },
+              lineStyle: { color: colors.chartGrid, width: 1.5, type: 'solid' },
+              data: [{ yAxis: 0 }],
+            }
+          : undefined,
       data: item.values.map((value, index) => ({
         value,
         itemStyle: {
@@ -166,10 +186,12 @@ export function AppLineChart({
     yAxis: {
       type: 'value',
       scale: true,
+      // Valores em reais: marcas a menos de um centavo repetiriam o mesmo rótulo.
+      minInterval: 0.01,
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: { color: colors.textMuted, fontSize: 12, formatter: formatAxis },
-      splitLine: { lineStyle: { color: colors.chartGrid } },
+      splitLine: { lineStyle: { color: colors.chartGrid, type: 'dashed' } },
     },
     series: [
       {
@@ -182,7 +204,7 @@ export function AppLineChart({
         showSymbol: values.length <= 24,
         lineStyle: { width: 3, color: colors.chartLine },
         itemStyle: { color: colors.chartLine, borderColor: colors.bgContainer, borderWidth: 2 },
-        areaStyle: { color: colors.chartLine, opacity: 0.1 },
+        areaStyle: { color: colors.chartLine, opacity: 0.08 },
       },
     ],
   };
@@ -240,7 +262,7 @@ export function AppDonutChart({
             style: {
               text: centerValue,
               fill: colors.text,
-              font: `700 18px ${FONT_MONO}`,
+              font: `800 18px ${FONT_SANS}`,
               textAlign: 'center',
             },
           },
@@ -251,7 +273,7 @@ export function AppDonutChart({
             style: {
               text: centerLabel ?? '',
               fill: colors.textMuted,
-              font: '500 12px sans-serif',
+              font: `600 12px ${FONT_SANS}`,
               textAlign: 'center',
             },
           },
@@ -260,9 +282,9 @@ export function AppDonutChart({
     series: [
       {
         type: 'pie',
-        radius: ['62%', '92%'],
+        radius: ['64%', '92%'],
         padAngle: 2,
-        itemStyle: { borderRadius: 6, borderColor: colors.bgContainer, borderWidth: 2 },
+        itemStyle: { borderRadius: 8, borderColor: colors.bgContainer, borderWidth: 3 },
         label: { show: false },
         emphasis: { scale: true, scaleSize: 4 },
         data: slices.map((slice) => ({

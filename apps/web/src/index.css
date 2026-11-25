@@ -1,7 +1,58 @@
 @import '@fontsource-variable/manrope';
-@import '@fontsource-variable/jetbrains-mono';
 
-/* Só o essencial fora do Ant Design: reset mínimo, link de pular e texto só para leitor de tela. */
+/*
+ * Tokens da identidade "livro-caixa moderno" (os mesmos valores de src/ui/theme/palette.ts).
+ * O Ant Design recebe as cores pelo tema; estas variáveis servem às peças feitas à mão
+ * (barra superior, cartões, recibo) e ao primeiro quadro antes do React montar.
+ */
+:root {
+  --ft-ink: #0f2a1f;
+  --ft-hero: #123d2c;
+  --ft-lime: #d4f25a;
+  --ft-loss: #c2662d;
+  --ft-ground: #eef1ec;
+  --ft-surface: #ffffff;
+  --ft-line: #cbd5cd;
+  --ft-muted: #52665c;
+  --ft-hero-muted: #a9c2b5;
+  --ft-hero-soft: #cfe0d6;
+  --ft-hero-line: #4e7a64;
+  --ft-hero-border: transparent;
+  --ft-focus: #123d2c;
+  --ft-radius-card: 28px;
+  --ft-radius-control: 999px;
+  --ft-font-ui: 'Manrope Variable', Manrope, Arial, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ft-ink: #e9f2ec;
+    --ft-hero: #0b2a1e;
+    --ft-ground: #0c1712;
+    --ft-surface: #13231b;
+    --ft-line: #2a4035;
+    --ft-muted: #9db3a7;
+    --ft-loss: #e08a55;
+    --ft-hero-border: #24473a;
+    --ft-focus: #d4f25a;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --ft-ink: #e9f2ec;
+  --ft-hero: #0b2a1e;
+  --ft-ground: #0c1712;
+  --ft-surface: #13231b;
+  --ft-line: #2a4035;
+  --ft-muted: #9db3a7;
+  --ft-loss: #e08a55;
+  --ft-hero-border: #24473a;
+  --ft-focus: #d4f25a;
+  color-scheme: dark;
+}
+
 *,
 *::before,
 *::after {
@@ -10,17 +61,15 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-padding-top: 5rem;
+  scroll-padding-top: 1.5rem;
 }
 
 body {
   margin: 0;
-  font-family:
-    'Manrope Variable',
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  background: var(--ft-ground);
+  color: var(--ft-ink);
+  font-family: var(--ft-font-ui);
+  font-weight: 500;
   -webkit-font-smoothing: antialiased;
   overflow-wrap: break-word;
 }
@@ -28,7 +77,110 @@ body {
 h1,
 h2,
 h3 {
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
+}
+
+/* Foco sempre visível: verde-floresta no claro, lima no escuro e dentro do cartão herói. */
+:focus-visible {
+  outline: 2px solid var(--ft-focus);
+  outline-offset: 2px;
+}
+
+/* Títulos que recebem foco por script (ir ao recibo, ir ao mês) não precisam de moldura. */
+h1[tabindex='-1']:focus,
+h2[tabindex='-1']:focus {
+  outline: none;
+}
+
+.ft-on-hero {
+  --ft-focus: var(--ft-lime);
+}
+
+.ft-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Abas da barra superior. */
+.ft-nav-link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: var(--ft-radius-control);
+  color: var(--ft-muted);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.ft-nav-link:hover {
+  color: var(--ft-ink);
+  background: var(--ft-ground);
+}
+
+.ft-nav-link[aria-current='page'] {
+  background: var(--ft-ink);
+  color: var(--ft-surface);
+  font-weight: 700;
+}
+
+/*
+ * Botões com texto quebram linha em vez de sair da caixa em telas estreitas (320 px); a altura
+ * mínima continua a do tema (44 px no toque). Botões só de ícone não mudam.
+ */
+.ant-btn.ant-btn:not(.ant-btn-icon-only) {
+  max-width: 100%;
+  height: auto;
+  min-height: var(--ant-control-height, 40px);
+  white-space: normal;
+  padding-block: 4px;
+}
+
+.ant-btn.ant-btn-lg.ant-btn-lg:not(.ant-btn-icon-only) {
+  min-height: var(--ant-control-height-lg, 48px);
+}
+
+.ant-btn.ant-btn-sm.ant-btn-sm:not(.ant-btn-icon-only) {
+  min-height: var(--ant-control-height-sm, 32px);
+}
+
+/* Telas muito estreitas (até 379 px): só a marca, para caber busca, avisos, tema e menu. */
+@media (max-width: 379px) {
+  .ft-logo-text {
+    display: none;
+  }
+}
+
+/* Selo clicável (fonte legal): 32 px no mouse, 44 px no toque. */
+.ft-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--ft-radius-control);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (pointer: coarse) {
+  .ft-chip {
+    min-height: 44px;
+  }
+}
+
+/* Recibo: serrilhado no pé do cartão, como uma fita de caixa. */
+.ft-receipt {
+  background-image: radial-gradient(circle at 12px 0, var(--ft-ground) 8px, transparent 9px);
+  background-size: 24px 12px;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
 }
 
 .skip-link {
@@ -36,11 +188,11 @@ h3 {
   left: 0.75rem;
   top: -4rem;
   z-index: 2000;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background: #0e3b2e;
-  color: #f7f6f1;
-  font-weight: 700;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--ft-radius-control);
+  background: var(--ft-hero);
+  color: var(--ft-lime);
+  font-weight: 800;
   text-decoration: none;
 }
 
@@ -58,8 +210,8 @@ h3 {
 }
 
 @media print {
-  .ant-layout-sider,
-  .ant-layout-header,
+  .ft-topbar,
+  .ft-tabbar,
   .ant-btn,
   nav {
     display: none !important;

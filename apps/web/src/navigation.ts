@@ -26,6 +26,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/config', label: 'Configurações', shortLabel: 'Config.', icon: 'settings', goKey: 'e' },
 ];
 
+/** Abas da barra superior (desktop): Configurações fica no menu da conta. */
+export const TOP_ITEMS: readonly NavItem[] = NAV_ITEMS.filter((item) => item.to !== '/config');
+
 /** Itens da barra inferior no celular. */
 export const TAB_ITEMS: readonly NavItem[] = NAV_ITEMS.filter((item) =>
   ['/', '/carteira', '/operacoes', '/apuracao', '/darfs'].includes(item.to),

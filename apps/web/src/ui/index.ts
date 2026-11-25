@@ -59,4 +59,4 @@ export { AppUpload } from './AppUpload';
 export { AppThemeProvider, useAppColors, useIsMobile } from './theme/AppThemeProvider';
 export { setTheme, useTheme, type Theme } from './theme/mode';
 export { PALETTES } from './theme/palette';
-export { MONO_STYLE } from './monoStyle';
+export { NUMERIC_STYLE } from './monoStyle';
