@@ -5,7 +5,7 @@ import { AppEmpty } from './AppEmpty';
 import { AppList } from './AppList';
 import { AppPagination } from './AppPagination';
 import { AppText } from './AppTypography';
-import { useIsMobile } from './theme/AppThemeProvider';
+import { useIsBelow } from './theme/AppThemeProvider';
 
 export type AppTableColumn<T> = ColumnType<T>;
 
@@ -25,6 +25,8 @@ export interface AppTableProps<T> {
   readonly ariaLabel: string;
   readonly onRowClick?: (record: T) => void;
   readonly size?: 'sm' | 'md';
+  /** Largura (px) abaixo da qual a tabela vira lista de cards; padrão 768 (celular). */
+  readonly cardsBelow?: number;
 }
 
 /** Tabela com ordenação e filtros por coluna; no celular vira lista de cards (`renderCard`). */
@@ -40,8 +42,9 @@ export function AppTable<T extends object>({
   ariaLabel,
   onRowClick,
   size = 'md',
+  cardsBelow = 768,
 }: AppTableProps<T>) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsBelow(cardsBelow);
   const [page, setPage] = useState(1);
   const lastPage = pageSize ? Math.max(1, Math.ceil(data.length / pageSize)) : 1;
   const current = Math.min(page, lastPage);

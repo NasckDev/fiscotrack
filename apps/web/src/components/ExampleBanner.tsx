@@ -4,7 +4,7 @@ import { describeStorageError } from '../domain/errors';
 import { useOperations } from '../state/OperationsContext';
 import { hasVisited, markVisited } from '../state/firstVisit';
 import { EXAMPLE_ID_PREFIX, useExampleLoader } from '../state/useExampleLoader';
-import { AppAlert, AppButton, useToasts } from '../ui';
+import { AppButton, useAppColors, useToasts } from '../ui';
 
 // O diálogo de confirmação só carrega quando o usuário clica em "Começar com meus dados".
 const AppConfirm = lazy(() =>
@@ -37,6 +37,7 @@ export function FirstVisitLoader() {
 export function ExampleBanner() {
   const { operations, paid, clear, removeMany, merge } = useOperations();
   const toasts = useToasts();
+  const colors = useAppColors();
   const [isConfirming, setIsConfirming] = useState(false);
   const examples = operations.filter((operation) => operation.id.startsWith(EXAMPLE_ID_PREFIX));
   if (examples.length === 0) return null;
@@ -60,12 +61,36 @@ export function ExampleBanner() {
 
   return (
     <>
-      <section aria-label="Dados de exemplo">
-        <AppAlert tone="warning" title="Dados de exemplo (fictícios)">
-          <AppButton size="sm" onClick={() => setIsConfirming(true)}>
-            Começar com meus dados
-          </AppButton>
-        </AppAlert>
+      <section
+        aria-label="Dados de exemplo"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '8px 14px',
+          padding: '8px 8px 8px 10px',
+          borderRadius: 28,
+          background: colors.bgContainer,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 800,
+            background: colors.lime,
+            color: colors.onLime,
+            borderRadius: 999,
+            padding: '5px 12px',
+          }}
+        >
+          Dados de exemplo
+        </span>
+        <span style={{ flex: '1 1 240px', fontSize: 14, color: colors.textMuted }}>
+          Operações fictícias para você explorar o app antes de lançar as suas.
+        </span>
+        <AppButton size="sm" onClick={() => setIsConfirming(true)}>
+          Começar com meus dados
+        </AppButton>
       </section>
       {isConfirming && (
         <Suspense fallback={null}>

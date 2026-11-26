@@ -54,8 +54,41 @@ const CATEGORY_OPTIONS = [
   { value: 'daytrade', label: 'Day trade' },
 ];
 
+/** O Form do Ant Design usa o `name` como id do `<form>`; o botão do rodapé da gaveta envia por ele. */
+const FORM_NAME = 'operacao';
+
 /** Cria o `seq` de uma operação nova; edições preservam o original. */
 const newSeq = () => Date.now() * 1000;
+
+interface OperationActionsProps {
+  readonly editing: Operation | null;
+  readonly isSaving: boolean;
+  readonly onClose: () => void;
+}
+
+function OperationActions({ editing, isSaving, onClose }: OperationActionsProps) {
+  return (
+    <AppFlex gap="small" justify="flex-end">
+      <AppButton onClick={onClose}>Cancelar</AppButton>
+      <AppButton
+        variant="primary"
+        htmlType="submit"
+        form={FORM_NAME}
+        loading={isSaving}
+        icon={editing ? 'check' : 'plus'}
+      >
+        {editing ? 'Salvar alterações' : 'Adicionar operação'}
+      </AppButton>
+    </AppFlex>
+  );
+}
+
+interface OperationFormProps extends Omit<OperationDialogProps, 'open'> {
+  readonly isSaving: boolean;
+  readonly onSavingChange: (isSaving: boolean) => void;
+  /** No celular os botões ficam no rodapé da gaveta, fora da área que rola, sem cobrir campos. */
+  readonly inlineActions: boolean;
+}
 
 /** Texto de cada campo como o schema do CSV espera (campos vazios viram texto vazio). */
 function toRaw(values: Partial<FormValues>): Record<FieldName, string> {
@@ -98,11 +131,13 @@ function OperationForm({
   defaultTicker,
   onClose,
   onSave,
-}: Omit<OperationDialogProps, 'open'>) {
+  isSaving,
+  onSavingChange,
+  inlineActions,
+}: OperationFormProps) {
   const [form] = useAppForm<FormValues>();
   const colors = useAppColors();
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   /** Valida o campo com o mesmo schema da importação, para as mensagens serem iguais. */
   const rule = (name: FieldName): AppFormRule => ({
@@ -119,21 +154,21 @@ function OperationForm({
     const parsed = csvRowSchema.safeParse(toRaw(values));
     if (!parsed.success) return;
     setSaveError(null);
-    setIsSaving(true);
+    onSavingChange(true);
     const id = editing?.id ?? `manual-${crypto.randomUUID()}`;
     try {
       setSaveError(
         await onSave(rowToOperation(parsed.data, id, editing?.seq ?? newSeq()), editing !== null),
       );
     } finally {
-      setIsSaving(false);
+      onSavingChange(false);
     }
   };
 
   return (
     <AppForm<FormValues>
       form={form}
-      name="operacao"
+      name={FORM_NAME}
       initialValues={initialValues(editing, defaultTicker)}
       onFinish={handleFinish}
     >
@@ -201,29 +236,21 @@ function OperationForm({
         </AppCol>
       </AppRow>
       {saveError !== null && <AppAlert tone="error" role="alert" title={saveError} />}
-      <div
-        style={{
-          position: 'sticky',
-          bottom: -24,
-          zIndex: 1,
-          marginTop: 16,
-          padding: '12px 0 8px',
-          background: colors.bgContainer,
-          borderTop: `1px solid ${colors.borderSoft}`,
-        }}
-      >
-        <AppFlex gap="small" justify="flex-end">
-          <AppButton onClick={onClose}>Cancelar</AppButton>
-          <AppButton
-            variant="primary"
-            htmlType="submit"
-            loading={isSaving}
-            icon={editing ? 'check' : 'plus'}
-          >
-            {editing ? 'Salvar alterações' : 'Adicionar operação'}
-          </AppButton>
-        </AppFlex>
-      </div>
+      {inlineActions && (
+        <div
+          style={{
+            position: 'sticky',
+            bottom: -24,
+            zIndex: 1,
+            marginTop: 16,
+            padding: '12px 0 8px',
+            background: colors.bgContainer,
+            borderTop: `1px solid ${colors.borderSoft}`,
+          }}
+        >
+          <OperationActions editing={editing} isSaving={isSaving} onClose={onClose} />
+        </div>
+      )}
     </AppForm>
   );
 }
@@ -237,6 +264,7 @@ export function OperationDialog({
   onSave,
 }: OperationDialogProps) {
   const isMobile = useIsMobile();
+  const [isSaving, setIsSaving] = useState(false);
   const title = editing ? 'Editar operação' : 'Nova operação';
   const form = (
     <OperationForm
@@ -244,11 +272,20 @@ export function OperationDialog({
       defaultTicker={defaultTicker}
       onClose={onClose}
       onSave={onSave}
+      isSaving={isSaving}
+      onSavingChange={setIsSaving}
+      inlineActions={!isMobile}
     />
   );
   if (isMobile) {
     return (
-      <AppDrawer open={open} title={title} onClose={onClose} placement="bottom">
+      <AppDrawer
+        open={open}
+        title={title}
+        onClose={onClose}
+        placement="bottom"
+        footer={<OperationActions editing={editing} isSaving={isSaving} onClose={onClose} />}
+      >
         {form}
       </AppDrawer>
     );

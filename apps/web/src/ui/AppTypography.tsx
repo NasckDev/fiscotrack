@@ -1,7 +1,7 @@
 import { theme, Typography } from 'antd';
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
-import { MONO_STYLE } from './monoStyle';
+import { NUMERIC_STYLE } from './monoStyle';
 import { useAppColors } from './theme/AppThemeProvider';
 
 type Tone = 'gain' | 'loss' | 'darf' | 'primary';
@@ -27,12 +27,12 @@ interface AppTextProps {
   readonly 'aria-live'?: 'polite' | 'assertive';
 }
 
-const SIZES = { sm: 13, md: undefined, lg: 17 } as const;
+const SIZES = { sm: 13, md: undefined, lg: 20 } as const;
 
 export function AppText({ tone, mono, size = 'md', block, ...props }: AppTextProps) {
   const color = useToneColor(tone);
   const style: CSSProperties = {
-    ...(mono ? MONO_STYLE : {}),
+    ...(mono ? NUMERIC_STYLE : {}),
     ...(color ? { color } : {}),
     ...(size !== 'md' ? { fontSize: SIZES[size] } : {}),
     ...(block ? { display: 'block' } : {}),

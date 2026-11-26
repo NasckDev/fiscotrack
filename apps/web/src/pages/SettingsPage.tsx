@@ -44,7 +44,7 @@ function Section({
   return (
     <section aria-label={title}>
       <AppCard padding="lg">
-        <AppFlex gap="middle" align="flex-start">
+        <AppFlex gap="middle" align="flex-start" wrap>
           <span
             aria-hidden="true"
             style={{
@@ -62,7 +62,7 @@ function Section({
           >
             <AppIcon name={icon} />
           </span>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ minWidth: 0, flex: '1 1 220px' }}>
             <AppTitle level={2}>{title}</AppTitle>
             <AppText type="secondary" block>
               {description}

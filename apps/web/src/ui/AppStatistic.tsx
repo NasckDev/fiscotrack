@@ -1,7 +1,7 @@
 import { Statistic } from 'antd';
 import type { ReactNode } from 'react';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { MONO_STYLE } from './monoStyle';
+import { NUMERIC_STYLE } from './monoStyle';
 import { useAppColors } from './theme/AppThemeProvider';
 import { useCountUp } from './useCountUp';
 
@@ -21,6 +21,8 @@ interface AppStatisticProps {
   readonly loading?: boolean;
   /** Faz o valor subir até o número final (desligado com "reduzir movimento"). */
   readonly animated?: boolean;
+  /** `lg`: valor de cartão em destaque (40 px). */
+  readonly size?: 'md' | 'lg';
 }
 
 export function AppStatistic({
@@ -32,17 +34,29 @@ export function AppStatistic({
   hint,
   loading = false,
   animated = false,
+  size = 'md',
 }: AppStatisticProps) {
   const colors = useAppColors();
   const shown = useCountUp(value, animated);
   const color = { default: undefined, gain: colors.gain, loss: colors.loss, darf: colors.darf }[
     tone
   ];
+  // O valor encolhe para caber na largura do cartão (unidade cqi), sem cortar nem quebrar.
+  const chars = Math.max(format(value).length, 4);
+  const base = size === 'lg' ? 40 : 32;
   return (
-    <div>
+    <div style={{ containerType: 'inline-size', minWidth: 0 }}>
       <Statistic
         title={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              fontWeight: 700,
+              color: colors.textMuted,
+            }}
+          >
             {icon && <AppIcon name={icon} />}
             {title}
           </span>
@@ -50,10 +64,20 @@ export function AppStatistic({
         value={shown}
         formatter={(raw) => format(Number(raw))}
         loading={loading}
-        styles={{ content: { ...MONO_STYLE, fontWeight: 700, color } }}
+        styles={{
+          content: {
+            ...NUMERIC_STYLE,
+            fontWeight: 800,
+            letterSpacing: '-0.03em',
+            lineHeight: 1.15,
+            fontSize: `min(${base}px, calc(100cqi / ${(chars * 0.6).toFixed(2)}))`,
+            whiteSpace: 'nowrap',
+            color,
+          },
+        }}
       />
       {hint !== undefined && (
-        <div style={{ marginTop: 4, fontSize: 13, color: colors.textMuted }}>{hint}</div>
+        <div style={{ marginTop: 6, fontSize: 14, color: colors.textMuted }}>{hint}</div>
       )}
     </div>
   );

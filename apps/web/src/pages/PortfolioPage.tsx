@@ -198,6 +198,7 @@ function PortfolioContent() {
             columns={COLUMNS}
             data={holdings}
             rowKey={(holding) => holding.ticker}
+            cardsBelow={1024}
             renderCard={(holding) => <HoldingCard holding={holding} />}
           />
         </AppCard>

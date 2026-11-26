@@ -9,10 +9,18 @@ import {
   suggestMapping,
 } from '../src/domain/csvMapping';
 import { operationsToCsv } from '../src/domain/csvExport';
-import { buildDarfs, darfDueDate, darfStatus, daysBetween, nextDarf } from '../src/domain/darf';
+import {
+  buildDarfs,
+  darfDueDate,
+  darfStatus,
+  daysBetween,
+  dueBadge,
+  nextDarf,
+} from '../src/domain/darf';
 import { buildExampleOperations } from '../src/domain/example';
 import { buildPortfolio, totalInvestedCents } from '../src/domain/portfolio';
 import { findDuplicates } from '../src/domain/csvMapping';
+import { buildReceipt, receiptMonth, shortSourceTitle } from '../src/domain/receipt';
 
 const NOW = new Date(2026, 10, 19);
 
@@ -269,5 +277,74 @@ describe('carteira no mesmo dia', () => {
     ]);
     expect(holding?.realizedCents).toBe(0);
     expect(holding?.realizedDayTradeCents).toBe(10_000);
+  });
+});
+
+describe('recibo "Por que deu esse valor?"', () => {
+  const buy = {
+    id: 'c',
+    seq: 1,
+    ticker: 'PETR4',
+    side: 'BUY',
+    feesCents: 0,
+    category: 'SWING',
+  } as const;
+  const sell = { ...buy, id: 'v', seq: 2, side: 'SELL' } as const;
+
+  it('mostra vendas, lucro, compensação e alíquota do motor, e fecha no DARF do mês', () => {
+    const report = calculateReport([
+      { ...buy, date: '2024-01-10', quantity: 1000, unitPriceCents: 2000 },
+      { ...sell, date: '2024-01-20', quantity: 1000, unitPriceCents: 2500 },
+    ]);
+    const month = report.months[0]!;
+    const receipt = buildReceipt(month);
+    const text = (value: string) => value.replace(/\s/g, ' ');
+    expect(receipt.lines.map((line) => line.label)).toEqual([
+      'Vendas de ações em janeiro',
+      'Lucro líquido',
+      'Prejuízo compensado',
+      'Alíquota (operações comuns)',
+    ]);
+    expect(text(receipt.lines[0]!.value)).toBe('R$ 25.000,00');
+    expect(receipt.lines[0]!.note).toMatch(/Acima de R\$\s20\.000,00 no mês, sem isenção/);
+    expect(text(receipt.lines[1]!.value)).toBe('R$ 5.000,00');
+    expect(receipt.lines[3]!.value).toBe('15%');
+    expect(receipt.totalCents).toBe(month.darfDueCents);
+    expect(receipt.totalCents).toBe(75_000);
+    expect(receipt.sources.map((source) => shortSourceTitle(source.title))).toContain(
+      'Instrução Normativa RFB nº 1.585/2015',
+    );
+  });
+
+  it('em mês isento para na isenção, sem alíquota', () => {
+    const report = calculateReport([
+      { ...buy, date: '2024-03-01', quantity: 100, unitPriceCents: 1000 },
+      { ...sell, date: '2024-03-15', quantity: 100, unitPriceCents: 1500 },
+    ]);
+    const receipt = buildReceipt(report.months[0]!);
+    expect(receipt.lines).toHaveLength(2);
+    expect(receipt.lines[0]!.note).toMatch(/lucro isento/);
+    expect(receipt.totalCents).toBe(0);
+  });
+
+  it('escolhe o mês do próximo DARF; sem ele, o último mês com DARF ou com vendas', () => {
+    const report = calculateReport(buildExampleOperations(NOW));
+    const withDarf = report.months.filter((month) => month.darfDueCents > 0);
+    const first = withDarf[0]!.month;
+    expect(receiptMonth(report.months, first)?.month).toBe(first);
+    expect(receiptMonth(report.months, null)?.month).toBe(withDarf[withDarf.length - 1]!.month);
+    expect(receiptMonth([], null)).toBeNull();
+  });
+});
+
+describe('selo de prazo do próximo DARF', () => {
+  it('conta os dias que faltam, o dia do vencimento e o atraso', () => {
+    expect(dueBadge('2026-11-30', '2026-11-25')).toEqual({ text: 'Faltam 5 dias', overdue: false });
+    expect(dueBadge('2026-11-30', '2026-11-29')).toEqual({ text: 'Falta 1 dia', overdue: false });
+    expect(dueBadge('2026-11-30', '2026-11-30')).toEqual({ text: 'Vence hoje', overdue: false });
+    expect(dueBadge('2026-11-30', '2026-12-02')).toEqual({
+      text: 'Venceu há 2 dias',
+      overdue: true,
+    });
   });
 });

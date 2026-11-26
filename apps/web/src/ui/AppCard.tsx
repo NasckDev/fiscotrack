@@ -1,4 +1,4 @@
-import { Skeleton, theme } from 'antd';
+import { Skeleton } from 'antd';
 import type { CSSProperties, ReactNode } from 'react';
 import { useAppColors } from './theme/AppThemeProvider';
 
@@ -13,14 +13,25 @@ interface AppCardProps {
   /** Ocupa a altura da linha da grade. */
   readonly fullHeight?: boolean;
   readonly padding?: 'none' | 'md' | 'lg';
+  readonly id?: string;
+  readonly className?: string;
   readonly 'aria-label'?: string;
   readonly 'aria-labelledby'?: string;
   readonly role?: string;
 }
 
+/** Respiro interno: menor no celular (320 px) para o conteúdo não espremer. */
+const PADDING = {
+  none: 0,
+  md: 'clamp(16px, 4vw, 24px)',
+  lg: 'clamp(18px, 4.5vw, 28px)',
+} as const;
+const SUBTLE_PADDING = 'clamp(14px, 4vw, 18px)';
+
 /**
- * Cartão do tema. Não usa o `Card` do Ant Design: ele puxa o componente de abas inteiro para o
- * pacote inicial, e aqui só precisamos de moldura, título e ações.
+ * Cartão da identidade "livro-caixa": raio de 28 px, sem sombra, superfície lisa sobre o fundo.
+ * O tom `hero` (verde-floresta) é reservado ao número que pede ação; `subtle` agrupa dentro de
+ * outro cartão. Não usa o `Card` do Ant Design: ele puxa as abas inteiras para o pacote inicial.
  */
 export function AppCard({
   tone = 'default',
@@ -29,36 +40,47 @@ export function AppCard({
   title,
   extra,
   loading = false,
+  className,
   children,
   ...aria
 }: AppCardProps) {
   const colors = useAppColors();
-  const { token } = theme.useToken();
-  const toneStyle: CSSProperties =
-    tone === 'hero'
-      ? {
-          background: `linear-gradient(135deg, ${colors.heroFrom}, ${colors.heroTo})`,
-          color: colors.heroText,
-          border: '1px solid transparent',
-        }
-      : {
-          background: tone === 'subtle' ? colors.bgSubtle : colors.bgContainer,
-          color: colors.text,
-          border: `1px solid ${colors.borderSoft}`,
-        };
-  const bodyPadding = { none: 0, md: token.padding, lg: token.paddingLG }[padding];
+  const toneStyle: CSSProperties = {
+    hero: {
+      background: colors.hero,
+      color: colors.heroText,
+      border: '1px solid var(--ft-hero-border)',
+      borderRadius: 'var(--ft-radius-card)',
+    },
+    subtle: {
+      background: colors.bgSubtle,
+      color: colors.text,
+      border: '1px solid transparent',
+      borderRadius: 20,
+    },
+    default: {
+      background: colors.bgContainer,
+      color: colors.text,
+      border: '1px solid transparent',
+      borderRadius: 'var(--ft-radius-card)',
+    },
+  }[tone];
+  const bodyPadding = tone === 'subtle' && padding !== 'none' ? SUBTLE_PADDING : PADDING[padding];
   const hasHeader = title !== undefined || extra !== undefined;
+  const classes = [tone === 'hero' ? 'ft-on-hero' : '', className ?? ''].join(' ').trim();
 
   return (
     <div
       {...aria}
+      className={classes || undefined}
       style={{
         ...toneStyle,
-        borderRadius: token.borderRadiusLG,
-        boxShadow: tone === 'hero' ? 'none' : token.boxShadowTertiary,
         width: '100%',
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
+        // Sem respiro interno (tabelas), o conteúdo segue a curva do cartão.
+        ...(padding === 'none' ? { overflow: 'hidden' } : {}),
         ...(fullHeight ? { height: '100%' } : {}),
       }}
     >
@@ -68,11 +90,12 @@ export function AppCard({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 12,
-            padding: `${token.paddingSM}px ${bodyPadding || token.padding}px`,
-            borderBottom: `1px solid ${colors.borderSoft}`,
-            fontSize: 16,
-            fontWeight: 700,
+            padding: `${PADDING.lg} ${PADDING.lg} 0`,
+            fontSize: 20,
+            fontWeight: 800,
+            letterSpacing: '-0.01em',
           }}
         >
           <div>{title}</div>

@@ -14,8 +14,12 @@ const meta = {
     tone: 'default',
     loading: false,
     animated: false,
+    size: 'md',
   },
-  argTypes: { tone: { control: 'inline-radio', options: ['default', 'gain', 'loss', 'darf'] } },
+  argTypes: {
+    tone: { control: 'inline-radio', options: ['default', 'gain', 'loss', 'darf'] },
+    size: { control: 'inline-radio', options: ['md', 'lg'] },
+  },
 } satisfies Meta<typeof AppStatistic>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -27,5 +31,6 @@ export const Ganho: Story = {
 export const Perda: Story = {
   args: { title: 'Resultado em 2026', value: -72_913, tone: 'loss', icon: 'trend-down' },
 };
+export const Destaque: Story = { args: { size: 'lg', icon: undefined } };
 export const Carregando: Story = { args: { loading: true } };
 export const Animado: Story = { args: { animated: true } };
