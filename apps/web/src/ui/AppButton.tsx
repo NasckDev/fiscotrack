@@ -18,6 +18,8 @@ export interface AppButtonProps {
   /** Ocupa toda a largura. */
   readonly block?: boolean;
   readonly htmlType?: 'button' | 'submit' | 'reset';
+  /** Id do formulário que o botão envia quando fica fora dele (rodapé de gaveta ou modal). */
+  readonly form?: string;
   readonly onClick?: MouseEventHandler<HTMLElement>;
   /** Rota interna: o botão vira um link (HashRouter). */
   readonly to?: string;
